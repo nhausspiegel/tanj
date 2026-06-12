@@ -208,6 +208,31 @@ function clusterConfidenceLevel(cluster: StoryCluster, members: Article[]): Conf
   return articleConfidence(members[0]);
 }
 
+// We show representative items per story, not every article. With over-merging
+// fixed most clusters are already small; this caps genuinely large same-story
+// pileups to a source-diverse sample (lead first, then new sources, then by
+// rank). The row keeps the true article/source counts for its label.
+const MAX_ROW_MEMBERS = 5;
+
+function pickRepresentatives(members: Article[], max = MAX_ROW_MEMBERS): Article[] {
+  if (members.length <= max) return members;
+  const chosen: Article[] = [members[0]];
+  const usedSources = new Set<string>([members[0].source ?? ""]);
+  for (const member of members.slice(1)) {
+    if (chosen.length >= max) break;
+    const key = member.source ?? "";
+    if (!usedSources.has(key)) {
+      usedSources.add(key);
+      chosen.push(member);
+    }
+  }
+  for (const member of members.slice(1)) {
+    if (chosen.length >= max) break;
+    if (!chosen.includes(member)) chosen.push(member);
+  }
+  return chosen;
+}
+
 export function buildScanViewModel(
   articles: Article[],
   precomputedClusters?: StoryCluster[],
@@ -277,11 +302,12 @@ export function buildScanViewModel(
       impact: lead.importance * 2,
       confidence: clusterConfidenceLevel(cluster, members),
       sourceCount: cluster.sourceCount,
+      // True totals for the label; the members list below is a capped sample.
       articleCount: cluster.articleIds.length,
       sources: cluster.sources,
       whyItMatters: cluster.whyItMatters,
       entities: cluster.entities,
-      members: members.map((m) => ({
+      members: pickRepresentatives(members).map((m) => ({
         id: m.id,
         src: m.source ?? "—",
         t: m.headline,
