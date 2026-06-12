@@ -24,7 +24,7 @@ import type {
 } from "@/lib/types";
 
 const databaseUrl =
-  process.env.POSTGRES_URL && process.env.POSTGRES_URL !== "your_vercel_db_url"
+  process.env.POSTGRES_URL && process.env.POSTGRES_URL !== "your_db_url"
     ? process.env.POSTGRES_URL
     : null;
 
