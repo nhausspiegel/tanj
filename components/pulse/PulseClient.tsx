@@ -1,0 +1,398 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  PULSE_ACCENT,
+  PULSE_DOMAIN_ORDER,
+  cardThumb,
+  domainHue,
+  domainLabel,
+  liveScore,
+  scoreLabel,
+  thumbGradient,
+  type PulseStory,
+} from "@/lib/pulse";
+import type { ArticleDomain } from "@/lib/types";
+import { usePulseData } from "@/components/pulse/usePulseData";
+import { usePulseState } from "@/components/pulse/usePulseState";
+import { PulseSidebar, type NavItemVM, type TopicVM } from "@/components/pulse/PulseSidebar";
+import { PulseHero } from "@/components/pulse/PulseHero";
+import { StoryRow, type RowItem, type RowViewModel } from "@/components/pulse/StoryRow";
+import { TrendsGrid, type TrendItem } from "@/components/pulse/TrendsGrid";
+import { WeeklyBrief } from "@/components/pulse/WeeklyBrief";
+import { StoryModal } from "@/components/pulse/StoryModal";
+
+type Page = "foryou" | "all" | "trends" | "brief";
+
+const PAGE_TITLE: Record<Page, string> = {
+  foryou: "For You",
+  all: "All Domains",
+  trends: "Trends",
+  brief: "Weekly Brief",
+};
+
+const PAGE_SUB: Record<Page, string> = {
+  foryou: "Your domains · sorted by personalized score",
+  all: "Every domain we track · nothing filtered",
+  trends: "Top signals across all domains · by personalized score",
+  brief: "Synthesized from cached articles",
+};
+
+function openExternal(url?: string) {
+  if (!url || typeof window === "undefined") return;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+export function PulseClient() {
+  const { stories, brief, cache } = usePulseData();
+  const { followed, votes, saved, setFollowed, setVote, toggleSaved } = usePulseState();
+
+  const [page, setPage] = useState<Page>("foryou");
+  const [heroIndex, setHeroIndex] = useState(0);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+
+  const mainRef = useRef<HTMLDivElement | null>(null);
+  const rowRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  const registerSection = useCallback((key: string, el: HTMLElement | null) => {
+    rowRefs.current[key] = el;
+  }, []);
+
+  const scrollMainTop = useCallback(() => {
+    mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  const scrollToRow = useCallback((key: string) => {
+    const el = rowRefs.current[key];
+    if (el && mainRef.current) {
+      mainRef.current.scrollTo({ top: el.offsetTop - 20, behavior: "smooth" });
+    }
+  }, []);
+
+  const goToPage = useCallback(
+    (p: Page) => {
+      setPage(p);
+      requestAnimationFrame(scrollMainTop);
+    },
+    [scrollMainTop],
+  );
+
+  // ── Derived data ──────────────────────────────────────────────────
+  const byId = useMemo(() => {
+    const map = new Map<string, PulseStory>();
+    for (const s of stories) map.set(s.id, s);
+    return map;
+  }, [stories]);
+
+  const score = useCallback(
+    (story: PulseStory) => liveScore(story, stories, saved, votes),
+    [stories, saved, votes],
+  );
+
+  const savedIds = useMemo(
+    () => Object.keys(saved).filter((k) => saved[k] && byId.has(k)),
+    [saved, byId],
+  );
+
+  // Domains that actually have stories, in the designed order.
+  const domainsWithStories = useMemo(() => {
+    const present = new Set(stories.map((s) => s.domain));
+    return PULSE_DOMAIN_ORDER.filter((d) => present.has(d));
+  }, [stories]);
+
+  const moreDomains = useMemo(() => {
+    const present = new Set(stories.map((s) => s.domain));
+    return PULSE_DOMAIN_ORDER.filter((d) => !present.has(d))
+      .map((d) => domainLabel(d))
+      .join(" · ");
+  }, [stories]);
+
+  const sortedByScore = useCallback(
+    (list: PulseStory[]) => list.slice().sort((a, b) => score(b) - score(a)),
+    [score],
+  );
+
+  // Hero = top 4 stories overall by live score.
+  const heroes = useMemo(() => sortedByScore(stories).slice(0, 4), [sortedByScore, stories]);
+
+  // Keep the carousel index in range as scores re-rank the hero set.
+  const safeHeroIndex = heroes.length ? heroIndex % heroes.length : 0;
+
+  // Auto-advance every 6s; pause while a modal is open.
+  useEffect(() => {
+    if (heroes.length <= 1) return;
+    const timer = setInterval(() => {
+      if (!selected) setHeroIndex((i) => (i + 1) % heroes.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [heroes.length, selected]);
+
+  const buildItems = useCallback(
+    (rowKey: string, list: PulseStory[]): RowItem[] =>
+      list.map((story, i) => ({
+        key: `${rowKey}:${story.id}`,
+        story,
+        scoreText: scoreLabel(score(story)),
+        thumb: cardThumb(story.domain, i),
+        saved: !!saved[story.id],
+        vote: (votes[story.id] as 1 | -1 | 0) || 0,
+        hovered: hovered === story.id,
+        onOpen: () => setSelected(story.id),
+        onEnter: () => setHovered(story.id),
+        onLeave: () => setHovered((h) => (h === story.id ? null : h)),
+        onLike: (e) => {
+          e.stopPropagation();
+          setVote(story.id, 1);
+        },
+        onDislike: (e) => {
+          e.stopPropagation();
+          setVote(story.id, -1);
+        },
+      })),
+    [score, saved, votes, hovered, setVote],
+  );
+
+  const rows: RowViewModel[] = useMemo(() => {
+    const storiesFor = (domain: ArticleDomain) =>
+      sortedByScore(stories.filter((s) => s.domain === domain));
+
+    let defs: { key: string; label: string; list: PulseStory[] }[] = [];
+
+    if (page === "all") {
+      defs = domainsWithStories.map((d) => ({
+        key: d,
+        label: domainLabel(d),
+        list: storiesFor(d),
+      }));
+    } else if (page === "foryou") {
+      defs = domainsWithStories
+        .filter((d) => followed[d])
+        .map((d) => ({ key: d, label: domainLabel(d), list: storiesFor(d) }));
+
+      const unfollowed = domainsWithStories.filter((d) => !followed[d]);
+      if (unfollowed.length) {
+        const pool = sortedByScore(stories.filter((s) => unfollowed.includes(s.domain))).slice(0, 8);
+        if (pool.length) defs.push({ key: "suggested", label: "Suggested for You", list: pool });
+      }
+      if (savedIds.length) {
+        defs.unshift({
+          key: "mylist",
+          label: "My List",
+          list: savedIds.map((id) => byId.get(id)).filter((s): s is PulseStory => Boolean(s)),
+        });
+      }
+    }
+
+    return defs.map((def) => ({
+      key: def.key,
+      label: def.label,
+      count: def.list.length,
+      removable: page === "foryou" && def.key !== "mylist" && def.key !== "suggested",
+      addable: page === "all" && !followed[def.key],
+      inFeed: page === "all" && !!followed[def.key],
+      onRemove: () => setFollowed(def.key, false),
+      onAdd: () => setFollowed(def.key, true),
+      items: buildItems(def.key, def.list),
+    }));
+  }, [
+    page,
+    stories,
+    domainsWithStories,
+    followed,
+    savedIds,
+    byId,
+    sortedByScore,
+    buildItems,
+    setFollowed,
+  ]);
+
+  const trendItems: TrendItem[] = useMemo(
+    () =>
+      sortedByScore(stories)
+        .slice(0, 12)
+        .map((story, i) => ({
+          key: story.id,
+          rank: i + 1,
+          title: story.title,
+          source: story.source,
+          timeAgo: story.timeAgo,
+          scoreText: scoreLabel(score(story)),
+          thumb: thumbGradient(domainHue(story.domain), i),
+          topicLabel: domainLabel(story.domain),
+          dotColor: `hsl(${domainHue(story.domain)}, 60%, 62%)`,
+          onOpen: () => setSelected(story.id),
+        })),
+    [sortedByScore, stories, score],
+  );
+
+  // ── Sidebar view-models ───────────────────────────────────────────
+  const navItems: NavItemVM[] = useMemo(() => {
+    const base: { key: Page; label: string }[] = [
+      { key: "foryou", label: "Dashboard" },
+      { key: "all", label: "All Domains" },
+      { key: "trends", label: "Trends" },
+      { key: "brief", label: "Brief" },
+    ];
+    const items: NavItemVM[] = base.map((n) => ({
+      key: n.key,
+      label: n.label,
+      badge: "",
+      active: page === n.key,
+      onClick: () => goToPage(n.key),
+    }));
+    items.push({
+      key: "mylist",
+      label: "My List",
+      badge: String(savedIds.length),
+      active: false,
+      onClick: () => {
+        if (page !== "foryou") {
+          setPage("foryou");
+          setTimeout(() => scrollToRow("mylist"), 80);
+        } else {
+          scrollToRow("mylist");
+        }
+      },
+    });
+    return items;
+  }, [page, savedIds.length, goToPage, scrollToRow]);
+
+  const topics: TopicVM[] = useMemo(
+    () =>
+      domainsWithStories.map((d) => ({
+        key: d,
+        label: domainLabel(d),
+        dot: `hsl(${domainHue(d)}, 60%, 58%)`,
+        opacity: followed[d] ? 1 : 0.45,
+        mark: followed[d] ? "" : "+",
+        title: followed[d] ? "Jump to row" : "View in All Domains",
+        onClick: () => {
+          if (!followed[d]) {
+            setPage("all");
+            setTimeout(() => scrollToRow(d), 80);
+          } else if (page === "trends" || page === "brief") {
+            setPage("foryou");
+            setTimeout(() => scrollToRow(d), 80);
+          } else {
+            scrollToRow(d);
+          }
+        },
+      })),
+    [domainsWithStories, followed, page, scrollToRow],
+  );
+
+  const followedCount = domainsWithStories.filter((d) => followed[d]).length;
+  const totalDomains = domainsWithStories.length;
+  const showAddHint = page === "foryou" && followedCount < totalDomains;
+
+  const cacheLine = cache.live
+    ? cache.refreshedAgo
+      ? `Cached · ${cache.articleCount} articles · refreshed ${cache.refreshedAgo}`
+      : `Cached · ${cache.articleCount} articles`
+    : `Demo data · ${cache.articleCount} stories`;
+
+  const selectedStory = selected ? byId.get(selected) ?? null : null;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        height: "100vh",
+        background: "#08080c",
+        color: "#e8e6e1",
+        overflow: "hidden",
+      }}
+    >
+      <PulseSidebar navItems={navItems} topics={topics} moreDomains={moreDomains} cacheLine={cacheLine} />
+
+      <main
+        ref={mainRef}
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          overflowX: "hidden",
+          position: "relative",
+          scrollBehavior: "smooth",
+        }}
+      >
+        {page === "foryou" && heroes.length > 0 ? (
+          <PulseHero
+            heroes={heroes}
+            index={safeHeroIndex}
+            saveLabel={
+              heroes[safeHeroIndex] && saved[heroes[safeHeroIndex].id] ? "✓ In My List" : "+ My List"
+            }
+            onOpen={() => setSelected(heroes[safeHeroIndex]?.id ?? null)}
+            onSave={() => heroes[safeHeroIndex] && toggleSaved(heroes[safeHeroIndex].id)}
+            onSelectIndex={setHeroIndex}
+          />
+        ) : null}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 34, padding: "28px 0 60px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "0 44px" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: 21,
+                  fontWeight: 900,
+                  letterSpacing: "-0.02em",
+                  color: "#ffffff",
+                }}
+              >
+                {PAGE_TITLE[page]}
+              </h2>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#8a8894" }}>{PAGE_SUB[page]}</span>
+            </div>
+            {showAddHint ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#8a8894" }}>
+                  Following {followedCount} of {totalDomains} domains
+                </span>
+                <button
+                  className="pulse-dashed"
+                  onClick={() => goToPage("all")}
+                  style={{
+                    border: "1px dashed rgba(255,255,255,0.2)",
+                    background: "transparent",
+                    color: "#a5a3ae",
+                    fontFamily: "inherit",
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    padding: "6px 14px",
+                    borderRadius: 14,
+                    cursor: "pointer",
+                  }}
+                >
+                  + Add domains in All Domains
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          {rows.map((row) => (
+            <StoryRow key={row.key} row={row} registerSection={registerSection} />
+          ))}
+
+          {page === "trends" ? <TrendsGrid items={trendItems} /> : null}
+          {page === "brief" ? (
+            <WeeklyBrief signalParagraph={brief.signalParagraph} insights={brief.insights} />
+          ) : null}
+        </div>
+      </main>
+
+      {selectedStory ? (
+        <StoryModal
+          story={selectedStory}
+          scoreText={scoreLabel(score(selectedStory))}
+          thumb={thumbGradient(domainHue(selectedStory.domain), 1)}
+          saveLabel={saved[selectedStory.id] ? "✓ Saved" : "+ Save to My List"}
+          onClose={() => setSelected(null)}
+          onToggleSave={() => toggleSaved(selectedStory.id)}
+          onReadOriginal={() => openExternal(selectedStory.url)}
+        />
+      ) : null}
+    </div>
+  );
+}

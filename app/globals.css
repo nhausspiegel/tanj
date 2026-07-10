@@ -3,176 +3,97 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
-
-  --color-white: #ffffff;
-  --color-black: #000000;
-
-  --slate-50:  #f8fafc;
-  --slate-100: #f1f5f9;
-  --slate-200: #e2e8f0;
-  --slate-300: #cbd5e1;
-  --slate-400: #94a3b8;
-  --slate-500: #64748b;
-  --slate-600: #475569;
-  --slate-700: #334155;
-  --slate-800: #1e293b;
-  --slate-900: #0f172a;
-  --slate-950: #020617;
-
-  --sky-50:  #f0f9ff;
-  --sky-100: #e0f2fe;
-  --sky-200: #bae6fd;
-  --sky-400: #38bdf8;
-  --sky-500: #0ea5e9;
-  --sky-600: #0284c7;
-  --sky-700: #0369a1;
-
-  --ink:    #111827;
-  --mist:   #f8fafc;
-  --line:   #dbe4ee;
-  --accent: #0f766e;
-  --warm:   #f59e0b;
-
-  --success-50:  #ecfdf5;
-  --success-600: #059669;
-  --success-700: #047857;
-
-  --info-50:  #f0f9ff;
-  --info-700: #0369a1;
-
-  --warn-50:  #fffbeb;
-  --warn-200: #fde68a;
-  --warn-700: #b45309;
-  --warn-800: #92400e;
-
-  --danger-50:  #fff1f2;
-  --danger-300: #fda4af;
-  --danger-600: #e11d48;
-  --danger-700: #be123c;
-
-  --bg-app:           var(--slate-50);
-  --bg-surface:       var(--color-white);
-  --bg-surface-muted: var(--slate-50);
-  --bg-chip:          var(--slate-100);
-  --bg-chip-hover:    var(--slate-200);
-
-  --fg-1:          var(--slate-950);
-  --fg-2:          var(--slate-900);
-  --fg-3:          var(--slate-600);
-  --fg-4:          var(--slate-500);
-  --fg-on-primary: var(--color-white);
-
-  --border-1:     var(--slate-200);
-  --border-soft:  var(--line);
-  --border-focus: var(--sky-400);
-
-  --action-primary:       var(--sky-600);
-  --action-primary-hover: var(--sky-700);
-  --action-accent:        var(--accent);
-
-  --bg-app-gradient:
-    radial-gradient(circle at top left,  rgba(14, 165, 233, 0.08), transparent 26%),
-    radial-gradient(circle at top right, rgba(15, 23, 42, 0.05),  transparent 24%),
-    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-
-  --selection-bg: rgba(14, 165, 233, 0.18);
-
-  --shadow-sm:    0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-card:  0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.03);
-  --shadow-panel: 0 14px 30px rgba(15, 23, 42, 0.07);
-  --shadow-hover: 0 6px 18px rgba(15, 23, 42, 0.08);
-
-  --radius-xs:   6px;
-  --radius-sm:   8px;
-  --radius-md:   12px;
-  --radius-lg:   16px;
-  --radius-xl:   32px;
-  --radius-pill: 9999px;
-
-  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-               "Segoe UI", "Inter", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
-               "Liberation Mono", monospace;
-
-  --type-kicker-size: 11px;
-  --type-kicker-ls:   0.12em;
+  color-scheme: dark;
 }
 
-html {
-  background: var(--bg-app);
-}
-
+html,
 body {
   margin: 0;
-  min-height: 100vh;
-  background: var(--bg-app-gradient);
-  color: var(--fg-2);
-  font-family: var(--font-sans);
+  padding: 0;
+  height: 100%;
+  background: #08080c;
+  color: #e8e6e1;
+  font-family: var(--font-archivo), "Archivo", sans-serif;
   -webkit-font-smoothing: antialiased;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
 }
 
 * {
   box-sizing: border-box;
 }
 
-::selection {
-  background: var(--selection-bg);
+a {
+  color: #e8e6e1;
+  text-decoration: none;
+}
+a:hover {
+  color: #ffffff;
 }
 
-@layer components {
-  .surface-card {
-    @apply rounded-xl border border-slate-200 bg-white p-6 shadow-sm;
-  }
+::selection {
+  background: rgba(63, 213, 232, 0.24);
+}
 
-  .surface-muted {
-    @apply rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm;
-  }
+/* ── PULSE hover states (inline styles handle the base look) ───────── */
+.pulse-row-scroll {
+  scrollbar-width: none;
+}
+.pulse-row-scroll::-webkit-scrollbar {
+  display: none;
+}
 
-  .section-title {
-    @apply text-lg font-semibold text-slate-900;
+@keyframes pulseHeroIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
   }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
-  .section-kicker {
-    @apply text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500;
-  }
-
-  .tag-pill {
-    @apply rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-200;
-  }
-
-  .tag-pill-active {
-    @apply border-sky-600 bg-sky-600 text-white hover:border-sky-700 hover:bg-sky-700;
-  }
-
-  .panel-divider {
-    @apply mt-4 border-t border-slate-200 pt-4;
-  }
-
-  .kicker-accent {
-    @apply text-[11px] font-semibold uppercase tracking-[0.12em] text-accent;
-  }
-
-  .live-dot {
-    @apply inline-flex items-center gap-2 font-mono text-[11px] font-medium text-slate-500;
-  }
-
-  .live-dot::before {
-    content: "";
-    @apply h-1.5 w-1.5 rounded-full bg-emerald-500;
-  }
-
-  /* Scan Terminal — small static utilities reused by ReaderPane + TeachingDrawer */
-  .scan-icon-btn {
-    @apply inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 bg-white text-[13px] font-semibold text-slate-600 transition-colors hover:bg-slate-100 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500;
-  }
-
-  .scan-kbd {
-    @apply mr-1.5 inline-block rounded-[3px] border border-slate-300 bg-white px-[5px] py-px font-mono text-[10px] text-slate-600;
-  }
+.pulse-nav:hover {
+  color: #ffffff !important;
+}
+.pulse-topic:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #ffffff !important;
+}
+.pulse-card {
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+.pulse-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+.pulse-chev:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+}
+.pulse-accent-btn:hover {
+  filter: brightness(1.12);
+}
+.pulse-glass-btn:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+}
+.pulse-vote:hover {
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+.pulse-trend {
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.pulse-trend:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+.pulse-close:hover {
+  background: rgba(8, 8, 12, 0.85) !important;
+}
+.pulse-dashed:hover {
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: #ffffff !important;
+}
+.pulse-soft:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #ffffff !important;
 }
