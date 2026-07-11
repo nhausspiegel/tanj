@@ -1,7 +1,8 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { PULSE_ACCENT, domainLabel, type PulseStory } from "@/lib/pulse";
+import { PULSE_ACCENT, domainHue, domainLabel, sourceMark, type PulseSourceRef, type PulseStory } from "@/lib/pulse";
+import { recencyLabel, recencyScore, trustLabel } from "@/lib/outlets";
 
 const dot: CSSProperties = {
   width: 3,
@@ -9,6 +10,98 @@ const dot: CSSProperties = {
   borderRadius: "50%",
   background: "#66646f",
 };
+
+function hoursAgoLabel(hoursAgo: number): string {
+  if (hoursAgo < 1) return "just now";
+  if (hoursAgo < 24) return `${Math.round(hoursAgo)}h ago`;
+  return `${Math.round(hoursAgo / 24)}d ago`;
+}
+
+function meterBar(value: number, key: string) {
+  const height = Math.max(2, (value / 5) * 16);
+  return (
+    <span key={key} style={{ width: 3, height: 16, display: "flex", alignItems: "flex-end" }}>
+      <span
+        style={{
+          width: "100%",
+          height,
+          borderRadius: 1,
+          background: PULSE_ACCENT,
+          opacity: 0.35 + (value / 5) * 0.65,
+        }}
+      />
+    </span>
+  );
+}
+
+function SourceRow({ source, hue }: { source: PulseSourceRef; hue: number }) {
+  const recency = recencyScore(source.hoursAgo);
+  const meterTitle = `Recency: ${recencyLabel(recency)} · Reputability: ${trustLabel(source.reputability)} · Reach: ${trustLabel(source.reach)}`;
+
+  return (
+    <a
+      href={source.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        display: "flex",
+        gap: 12,
+        alignItems: "flex-start",
+        padding: "12px 0",
+        borderTop: "1px solid rgba(255,255,255,0.07)",
+        textDecoration: "none",
+        color: "inherit",
+      }}
+    >
+      <span
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: "50%",
+          background: `hsla(${hue},55%,42%,0.4)`,
+          color: "#ffffff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 10,
+          fontWeight: 800,
+          flexShrink: 0,
+        }}
+      >
+        {sourceMark(source.name)}
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 3 }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: "#e8e6e1" }}>{source.name}</span>
+          <span style={{ fontSize: 10.5, color: "#66646f", flexShrink: 0 }}>
+            {hoursAgoLabel(source.hoursAgo)}
+          </span>
+        </div>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 12,
+            lineHeight: 1.45,
+            color: "#8a8894",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {source.summary}
+        </p>
+      </div>
+      <div
+        title={meterTitle}
+        style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 16, flexShrink: 0, marginTop: 2 }}
+      >
+        {[meterBar(recency, "recency"), meterBar(source.reputability, "rep"), meterBar(source.reach, "reach")]}
+      </div>
+    </a>
+  );
+}
 
 export function StoryModal({
   story,
@@ -47,14 +140,16 @@ export function StoryModal({
         style={{
           width: "100%",
           maxWidth: 620,
+          maxHeight: "82vh",
           background: "#13131b",
           border: "1px solid rgba(255,255,255,0.12)",
           borderRadius: 14,
-          overflow: "hidden",
+          overflowY: "auto",
+          overflowX: "hidden",
           boxShadow: "0 40px 90px rgba(0,0,0,0.6)",
         }}
       >
-        <div style={{ position: "relative", height: 170, background: thumb }}>
+        <div style={{ position: "sticky", top: 0, zIndex: 1, height: 170, background: thumb }}>
           <button
             className="pulse-close"
             onClick={onClose}
@@ -152,6 +247,23 @@ export function StoryModal({
               AI TL;DR
             </div>
             <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "#d6d4dd" }}>{story.tldr}</p>
+          </div>
+          <div style={{ marginBottom: 22 }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#a5a3ae",
+                marginBottom: 4,
+              }}
+            >
+              {story.sources.length} source{story.sources.length === 1 ? "" : "s"} covering this story
+            </div>
+            <div>
+              {story.sources.map((source) => (
+                <SourceRow key={source.name + source.url} source={source} hue={domainHue(story.domain)} />
+              ))}
+            </div>
           </div>
           <div style={{ display: "flex", gap: 12 }}>
             <button

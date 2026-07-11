@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { Article } from "@/lib/types";
 import {
   SEED_STORIES,
-  articleToStory,
+  articlesToStories,
+  clusterArticlesToStories,
   cardThumb,
   domainHue,
   domainLabel,
@@ -23,6 +24,7 @@ function story(overrides: Partial<PulseStory> = {}): PulseStory {
     tldr: "Summary",
     importance: 3,
     baseScore: 5,
+    sources: [{ name: "TechCrunch", hoursAgo: 24, summary: "Summary", reputability: 4, reach: 5, composite: 3 }],
     ...overrides,
   };
 }
@@ -68,33 +70,62 @@ describe("liveScore", () => {
   });
 });
 
-describe("articleToStory", () => {
-  const base: Article = {
-    id: "x1",
-    date: "2026-07-09",
-    processed_at: "2026-07-09T12:00:00Z",
-    week: "2026-W28",
-    domain: "Robotics",
-    headline: "A humanoid ships",
-    summary: "It walks.",
-    source: "IEEE Spectrum",
-    url: "https://example.com/a",
-    tags: ["robots"],
-    importance: 4,
-  };
+const BASE_ARTICLE: Article = {
+  id: "x1",
+  date: "2026-07-09",
+  processed_at: "2026-07-09T12:00:00Z",
+  week: "2026-W28",
+  domain: "Robotics",
+  headline: "A humanoid ships",
+  summary: "It walks.",
+  source: "IEEE Spectrum",
+  url: "https://example.com/a",
+  tags: ["robots"],
+  importance: 4,
+};
 
-  it("maps article fields and uses personalized_score when present", () => {
-    const s = articleToStory({ ...base, personalized_score: 8.2 } as Article, Date.parse("2026-07-10T12:00:00Z"));
+describe("articlesToStories (Dashboard — one story per article)", () => {
+  const now = Date.parse("2026-07-10T12:00:00Z");
+
+  it("maps a single article into a one-source story", () => {
+    const [s] = articlesToStories([{ ...BASE_ARTICLE, personalized_score: 8.2 } as Article], now);
     expect(s.title).toBe("A humanoid ships");
     expect(s.tldr).toBe("It walks.");
     expect(s.source).toBe("IEEE Spectrum");
     expect(s.baseScore).toBeCloseTo(8.2, 5);
     expect(s.timeAgo).toBe("1d ago");
+    expect(s.sources).toHaveLength(1);
+    expect(s.sources[0].name).toBe("IEEE Spectrum");
   });
 
   it("derives a base score from importance when no personalized score", () => {
-    const s = articleToStory(base, Date.parse("2026-07-10T12:00:00Z"));
+    const [s] = articlesToStories([BASE_ARTICLE], now);
     expect(s.baseScore).toBeCloseTo(4 * 1.6 + 1, 5);
+  });
+
+  it("never merges — same-story articles from different sources stay separate cards", () => {
+    const dupe: Article = { ...BASE_ARTICLE, id: "x2", source: "TechCrunch" };
+    const result = articlesToStories([BASE_ARTICLE, dupe], now);
+    expect(result).toHaveLength(2);
+  });
+});
+
+describe("clusterArticlesToStories (Trends — merged sources)", () => {
+  const now = Date.parse("2026-07-10T12:00:00Z");
+
+  it("merges same-story articles from different sources and boosts the score", () => {
+    const dupe: Article = {
+      ...BASE_ARTICLE,
+      id: "x2",
+      source: "TechCrunch",
+      processed_at: "2026-07-10T06:00:00Z",
+      url: "https://example.com/b",
+    };
+    const [s] = clusterArticlesToStories([BASE_ARTICLE, dupe], now);
+    expect(s.sources).toHaveLength(2);
+    // Most recent source (TechCrunch, 6h ago) leads the merged story.
+    expect(s.source).toBe("TechCrunch");
+    expect(s.baseScore).toBeGreaterThan(clusterArticlesToStories([BASE_ARTICLE], now)[0].baseScore);
   });
 });
 

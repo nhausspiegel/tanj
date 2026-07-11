@@ -4,6 +4,13 @@ import type { CSSProperties } from "react";
 import { PULSE_ACCENT, sourceMark, type PulseStory } from "@/lib/pulse";
 import { ThumbIcon } from "@/components/pulse/icons";
 
+function scoreExplanation(story: PulseStory, scoreText: string): string {
+  const n = story.sources.length;
+  const corroboration =
+    n > 1 ? `Corroborated by ${n} sources, which lifts the score.` : "Reported by one source so far.";
+  return `${scoreText} — ${corroboration} Adjusts with your boosts, suppresses, and saves.`;
+}
+
 export type StoryCardProps = {
   story: PulseStory;
   scoreText: string;
@@ -38,6 +45,7 @@ export function StoryCard({
   onLike,
   onDislike,
 }: StoryCardProps) {
+  const scoreValue = Number.parseFloat(scoreText) || 0;
   const likeStyle: CSSProperties = {
     width: 26,
     height: 26,
@@ -184,7 +192,31 @@ export function StoryCard({
             fontWeight: 600,
           }}
         >
-          <span style={{ color: "#4AD07A", fontWeight: 800 }}>{scoreText}</span>
+          <span
+            title={scoreExplanation(story, scoreText)}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: "default" }}
+          >
+            <span style={{ color: "#4AD07A", fontWeight: 800 }}>{scoreText}</span>
+            <span
+              style={{
+                width: 22,
+                height: 4,
+                borderRadius: 2,
+                background: "rgba(255,255,255,0.1)",
+                overflow: "hidden",
+              }}
+            >
+              <span
+                style={{
+                  display: "block",
+                  height: "100%",
+                  width: `${Math.max(0, Math.min(100, scoreValue * 10))}%`,
+                  background: "#4AD07A",
+                  borderRadius: 2,
+                }}
+              />
+            </span>
+          </span>
           <span style={dot} />
           <span style={{ color: "#b5b3be" }}>{story.source}</span>
           <span style={dot} />

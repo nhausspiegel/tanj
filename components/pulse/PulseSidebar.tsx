@@ -19,6 +19,7 @@ export type TopicVM = {
   mark: string;
   title: string;
   onClick: () => void;
+  onToggle: (e: React.MouseEvent) => void;
 };
 
 const microHeader: CSSProperties = {
@@ -34,11 +35,19 @@ export function PulseSidebar({
   topics,
   moreDomains,
   cacheLine,
+  canRefresh,
+  refreshing,
+  refreshWarning,
+  onRefresh,
 }: {
   navItems: NavItemVM[];
   topics: TopicVM[];
   moreDomains: string;
   cacheLine: string;
+  canRefresh: boolean;
+  refreshing: boolean;
+  refreshWarning: string | null;
+  onRefresh: () => void;
 }) {
   return (
     <aside
@@ -66,11 +75,67 @@ export function PulseSidebar({
           color: "#8a8894",
           letterSpacing: "0.08em",
           textTransform: "uppercase",
-          marginBottom: 26,
+          marginBottom: 16,
         }}
       >
         Tech intelligence, daily
       </div>
+
+      {canRefresh ? (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+            padding: "10px 12px",
+            marginBottom: 22,
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.08)",
+            background: "rgba(255,255,255,0.02)",
+          }}
+        >
+          <button
+            className="pulse-soft"
+            onClick={onRefresh}
+            disabled={refreshing}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              width: "100%",
+              background: refreshing ? "transparent" : PULSE_ACCENT,
+              border: refreshing ? "1px solid rgba(255,255,255,0.14)" : "none",
+              color: refreshing ? "#a5a3ae" : "#08080c",
+              fontFamily: "inherit",
+              fontSize: 12.5,
+              fontWeight: 800,
+              padding: "8px 10px",
+              borderRadius: 7,
+              cursor: refreshing ? "default" : "pointer",
+            }}
+          >
+            {refreshing ? (
+              <>
+                <span className="pulse-spinner" />
+                Refreshing…
+              </>
+            ) : (
+              <>↻ Refresh now</>
+            )}
+          </button>
+          <div
+            style={{
+              fontSize: 10.5,
+              lineHeight: 1.5,
+              color: refreshWarning ? "#e5a13c" : "#66646f",
+            }}
+            title={refreshWarning ?? undefined}
+          >
+            {refreshWarning ?? cacheLine}
+          </div>
+        </div>
+      ) : null}
 
       <nav style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 26 }}>
         {navItems.map((n) => (
@@ -104,41 +169,76 @@ export function PulseSidebar({
       <div style={{ ...microHeader, padding: "0 12px", marginBottom: 8 }}>Topics</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
         {topics.map((t) => (
-          <button
+          <div
             key={t.key}
             className="pulse-topic"
-            onClick={t.onClick}
-            title={t.title}
             style={{
               display: "flex",
               alignItems: "center",
               gap: 9,
-              background: "transparent",
-              border: "none",
-              color: "#a5a3ae",
-              fontFamily: "inherit",
-              fontSize: 13,
-              fontWeight: 500,
-              padding: "8px 12px",
+              padding: "2px 4px 2px 12px",
               borderRadius: 8,
-              cursor: "pointer",
-              textAlign: "left",
               opacity: t.opacity,
               width: "100%",
+              boxSizing: "border-box",
             }}
           >
-            <span
+            <button
+              onClick={t.onClick}
+              title={t.title}
               style={{
-                width: 7,
-                height: 7,
-                borderRadius: "50%",
-                background: t.dot,
-                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+                flex: 1,
+                minWidth: 0,
+                background: "transparent",
+                border: "none",
+                color: "#a5a3ae",
+                fontFamily: "inherit",
+                fontSize: 13,
+                fontWeight: 500,
+                padding: "6px 0",
+                cursor: "pointer",
+                textAlign: "left",
               }}
-            />
-            <span style={{ flex: 1 }}>{t.label}</span>
-            <span style={{ fontSize: 12, fontWeight: 800, color: "#8a8894" }}>{t.mark}</span>
-          </button>
+            >
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: t.dot,
+                  flexShrink: 0,
+                }}
+              />
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {t.label}
+              </span>
+            </button>
+            <button
+              className="pulse-topic-toggle"
+              onClick={t.onToggle}
+              title={t.title}
+              style={{
+                flexShrink: 0,
+                width: 20,
+                height: 20,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "transparent",
+                border: "none",
+                borderRadius: 5,
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 800,
+                color: "#8a8894",
+              }}
+            >
+              {t.mark}
+            </button>
+          </div>
         ))}
       </div>
 
@@ -171,9 +271,11 @@ export function PulseSidebar({
         >
           Settings
         </button>
-        <div style={{ fontSize: 10, color: "#55535e", padding: "8px 12px 0", lineHeight: 1.6 }}>
-          {cacheLine}
-        </div>
+        {!canRefresh ? (
+          <div style={{ fontSize: 10, color: "#55535e", padding: "8px 12px 0", lineHeight: 1.6 }}>
+            {cacheLine}
+          </div>
+        ) : null}
       </div>
     </aside>
   );

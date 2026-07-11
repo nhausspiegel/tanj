@@ -44,7 +44,8 @@ function openExternal(url?: string) {
 }
 
 export function PulseClient() {
-  const { stories, brief, cache } = usePulseData();
+  const { stories, rankedStories, brief, cache, refreshing, refreshWarning, canRefresh, triggerRefresh } =
+    usePulseData();
   const { followed, votes, saved, setFollowed, setVote, toggleSaved } = usePulseState();
 
   const [page, setPage] = useState<Page>("foryou");
@@ -85,9 +86,22 @@ export function PulseClient() {
     return map;
   }, [stories]);
 
+  // Trends opens clustered stories, which live in a separate id space (cluster
+  // ids, not article ids) — needs its own lookup + its own score function.
+  const rankedById = useMemo(() => {
+    const map = new Map<string, PulseStory>();
+    for (const s of rankedStories) map.set(s.id, s);
+    return map;
+  }, [rankedStories]);
+
   const score = useCallback(
     (story: PulseStory) => liveScore(story, stories, saved, votes),
     [stories, saved, votes],
+  );
+
+  const rankedScore = useCallback(
+    (story: PulseStory) => liveScore(story, rankedStories, saved, votes),
+    [rankedStories, saved, votes],
   );
 
   const savedIds = useMemo(
@@ -209,21 +223,25 @@ export function PulseClient() {
 
   const trendItems: TrendItem[] = useMemo(
     () =>
-      sortedByScore(stories)
+      rankedStories
+        .slice()
+        .sort((a, b) => rankedScore(b) - rankedScore(a))
         .slice(0, 12)
         .map((story, i) => ({
           key: story.id,
           rank: i + 1,
           title: story.title,
+          lead: story.tldr,
           source: story.source,
           timeAgo: story.timeAgo,
-          scoreText: scoreLabel(score(story)),
-          thumb: thumbGradient(domainHue(story.domain), i),
+          scoreText: scoreLabel(rankedScore(story)),
+          scoreValue: rankedScore(story),
+          sourceCount: story.sources.length,
+          domainHue: domainHue(story.domain),
           topicLabel: domainLabel(story.domain),
-          dotColor: `hsl(${domainHue(story.domain)}, 60%, 62%)`,
           onOpen: () => setSelected(story.id),
         })),
-    [sortedByScore, stories, score],
+    [rankedStories, rankedScore],
   );
 
   // ── Sidebar view-models ───────────────────────────────────────────
@@ -265,13 +283,15 @@ export function PulseClient() {
         label: domainLabel(d),
         dot: `hsl(${domainHue(d)}, 60%, 58%)`,
         opacity: followed[d] ? 1 : 0.45,
-        mark: followed[d] ? "" : "+",
-        title: followed[d] ? "Jump to row" : "View in All Domains",
+        mark: followed[d] ? "×" : "+",
+        title: followed[d] ? "Remove from For You" : "Add to For You",
+        onToggle: (e) => {
+          e.stopPropagation();
+          setFollowed(d, !followed[d]);
+        },
         onClick: () => {
-          if (!followed[d]) {
-            setPage("all");
-            setTimeout(() => scrollToRow(d), 80);
-          } else if (page === "trends" || page === "brief") {
+          if (!followed[d]) return;
+          if (page === "trends" || page === "brief") {
             setPage("foryou");
             setTimeout(() => scrollToRow(d), 80);
           } else {
@@ -279,7 +299,7 @@ export function PulseClient() {
           }
         },
       })),
-    [domainsWithStories, followed, page, scrollToRow],
+    [domainsWithStories, followed, page, scrollToRow, setFollowed],
   );
 
   const followedCount = domainsWithStories.filter((d) => followed[d]).length;
@@ -292,7 +312,8 @@ export function PulseClient() {
       : `Cached · ${cache.articleCount} articles`
     : `Demo data · ${cache.articleCount} stories`;
 
-  const selectedStory = selected ? byId.get(selected) ?? null : null;
+  const selectedStory = selected ? byId.get(selected) ?? rankedById.get(selected) ?? null : null;
+  const selectedIsRanked = Boolean(selected && !byId.has(selected) && rankedById.has(selected));
 
   return (
     <div
@@ -304,7 +325,16 @@ export function PulseClient() {
         overflow: "hidden",
       }}
     >
-      <PulseSidebar navItems={navItems} topics={topics} moreDomains={moreDomains} cacheLine={cacheLine} />
+      <PulseSidebar
+        navItems={navItems}
+        topics={topics}
+        moreDomains={moreDomains}
+        cacheLine={cacheLine}
+        canRefresh={canRefresh}
+        refreshing={refreshing}
+        refreshWarning={refreshWarning}
+        onRefresh={triggerRefresh}
+      />
 
       <main
         ref={mainRef}
@@ -385,7 +415,7 @@ export function PulseClient() {
       {selectedStory ? (
         <StoryModal
           story={selectedStory}
-          scoreText={scoreLabel(score(selectedStory))}
+          scoreText={scoreLabel(selectedIsRanked ? rankedScore(selectedStory) : score(selectedStory))}
           thumb={thumbGradient(domainHue(selectedStory.domain), 1)}
           saveLabel={saved[selectedStory.id] ? "✓ Saved" : "+ Save to My List"}
           onClose={() => setSelected(null)}

@@ -3,20 +3,37 @@ import {
   DOMAIN_LABELS,
   type Article,
   type ArticleDomain,
+  type StoryCluster,
 } from "@/lib/types";
+import { clusterArticles } from "@/lib/clustering";
+import { outletTrust, sourceComposite } from "@/lib/outlets";
 
 // ── PULSE accent (Electric — the chosen default theme) ──────────────
 export const PULSE_ACCENT = "#3FD5E8";
 
+// One row per contributing article inside a merged story. reputability/reach
+// are 1-5 editorial-trust scores from lib/outlets.ts; composite is the
+// recency/reputability/reach blend used to order this array.
+export type PulseSourceRef = {
+  name: string;
+  url?: string;
+  hoursAgo: number;
+  summary: string;
+  reputability: number;
+  reach: number;
+  composite: number;
+};
+
 export type PulseStory = {
   id: string;
   domain: ArticleDomain;
-  source: string;
-  timeAgo: string;
+  source: string; // lead (most recent) source name — back-compat single display
+  timeAgo: string; // time since the most recent contributing source
   title: string;
   tldr: string;
-  url?: string;
+  url?: string; // lead source's article url
   importance: number; // 1–5
+  sources: PulseSourceRef[]; // every contributing article, sorted most-recent-first
   baseScore: number; // 1–10 personalized base, before live vote/save adjustments
 };
 
@@ -130,7 +147,14 @@ export function sourceMark(source: string): string {
   return (source.split(/\s/)[0] || "").slice(0, 2).toUpperCase();
 }
 
-function baseScoreFromArticle(article: Article): number {
+function hoursSince(value: string | undefined, now: number): number {
+  if (!value) return 24 * 365; // unknown publish time sorts last
+  const then = new Date(value).getTime();
+  if (!Number.isFinite(then)) return 24 * 365;
+  return Math.max(0, (now - then) / (60 * 60 * 1000));
+}
+
+function articleBaseScore(article: Article): number {
   const raw = (article as { personalized_score?: number | null }).personalized_score;
   if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
     return clamp(raw, 1, 10);
@@ -139,22 +163,97 @@ function baseScoreFromArticle(article: Article): number {
   return clamp(article.importance * 1.6 + 1, 1, 10);
 }
 
-export function articleToStory(article: Article, now: number = Date.now()): PulseStory {
+// Multiple outlets corroborating a story is itself a signal — bump the base
+// score modestly per additional source, capped so a single strong story
+// can't be dwarfed by wire-service pickup volume alone.
+function clusterBaseScore(members: Article[]): number {
+  const best = Math.max(...members.map(articleBaseScore));
+  const corroborationBoost = clamp((members.length - 1) * 0.4, 0, 1.5);
+  return clamp(best + corroborationBoost, 1, 10);
+}
+
+function clusterToStory(
+  cluster: StoryCluster,
+  articlesById: Map<string, Article>,
+  now: number,
+): PulseStory {
+  const members = cluster.articleIds
+    .map((id) => articlesById.get(id))
+    .filter((article): article is Article => Boolean(article));
+  const lead = members[0] ?? null;
+
+  const sources: PulseSourceRef[] = members
+    .map((article) => {
+      const name = article.source ?? "Unknown";
+      const hoursAgo = hoursSince(article.processed_at || article.date, now);
+      const { reputability, reach } = outletTrust(name);
+      return {
+        name,
+        url: article.url,
+        hoursAgo,
+        summary: article.summary,
+        reputability,
+        reach,
+        composite: sourceComposite(hoursAgo, reputability, reach),
+      };
+    })
+    .sort((a, b) => b.composite - a.composite);
+
+  // Card-level "most recent" still means most recent by time, not trust —
+  // keep that distinct from the composite ordering used for the source list.
+  const mostRecent = sources.slice().sort((a, b) => a.hoursAgo - b.hoursAgo)[0];
+
   return {
-    id: article.id,
-    domain: article.domain,
-    source: article.source ?? "Unknown",
-    timeAgo: relativeTime(article.processed_at || article.date, now),
-    title: article.headline,
-    tldr: article.summary,
-    url: article.url,
-    importance: article.importance,
-    baseScore: baseScoreFromArticle(article),
+    id: cluster.id,
+    domain: cluster.domain,
+    source: mostRecent?.name ?? "Unknown",
+    timeAgo: mostRecent ? relativeTime(new Date(now - mostRecent.hoursAgo * 3600_000).toISOString(), now) : "",
+    title: cluster.headline,
+    tldr: lead?.summary ?? cluster.summary,
+    url: mostRecent?.url,
+    importance: lead?.importance ?? 3,
+    sources,
+    baseScore: clusterBaseScore(members.length ? members : lead ? [lead] : []),
   };
 }
 
+// One story per article — no merging. Used by the Dashboard (Netflix rows,
+// hero, My List): keep articles separate for now, per-source.
 export function articlesToStories(articles: Article[], now: number = Date.now()): PulseStory[] {
-  return articles.map((a) => articleToStory(a, now));
+  return articles.map((article) => {
+    const name = article.source ?? "Unknown";
+    const hoursAgo = hoursSince(article.processed_at || article.date, now);
+    const { reputability, reach } = outletTrust(name);
+    const sourceRef: PulseSourceRef = {
+      name,
+      url: article.url,
+      hoursAgo,
+      summary: article.summary,
+      reputability,
+      reach,
+      composite: sourceComposite(hoursAgo, reputability, reach),
+    };
+    return {
+      id: article.id,
+      domain: article.domain,
+      source: name,
+      timeAgo: relativeTime(article.processed_at || article.date, now),
+      title: article.headline,
+      tldr: article.summary,
+      url: article.url,
+      importance: article.importance,
+      sources: [sourceRef],
+      baseScore: articleBaseScore(article),
+    };
+  });
+}
+
+// One story per CLUSTER — merges same-story articles from different outlets
+// and boosts score for corroboration. Used only by Trends (the ranked feed).
+export function clusterArticlesToStories(articles: Article[], now: number = Date.now()): PulseStory[] {
+  const clusters = clusterArticles(articles);
+  const articlesById = new Map(articles.map((article) => [article.id, article]));
+  return clusters.map((cluster) => clusterToStory(cluster, articlesById, now));
 }
 
 export type PulseVoteMap = Record<string, 1 | -1 | 0>;
@@ -249,6 +348,19 @@ export const SEED_STORIES: PulseStory[] = SEED_INPUT.map((s) => {
     ...s,
     importance: 3 + (h % 3),
     baseScore: clamp(4 + (h % 40) / 10, 1, 10),
+    sources: [
+      (() => {
+        const { reputability, reach } = outletTrust(s.source);
+        return {
+          name: s.source,
+          hoursAgo: 0,
+          summary: s.tldr,
+          reputability,
+          reach,
+          composite: sourceComposite(0, reputability, reach),
+        };
+      })(),
+    ],
   };
 });
 
