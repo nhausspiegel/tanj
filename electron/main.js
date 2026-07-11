@@ -321,7 +321,9 @@ function createMenu() {
     {
       label: "View",
       submenu: [
-        { role: "reload" },
+        // Default reload accelerator is CmdOrCtrl+R, which collides with
+        // File > Refresh Now. Rebind so Cmd+R always means data refresh.
+        { role: "reload", accelerator: "CmdOrCtrl+Alt+R" },
         { role: "forceReload" },
         { role: "toggleDevTools" },
       ],

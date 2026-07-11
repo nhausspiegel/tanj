@@ -2,6 +2,18 @@
 
 Local-first tech intelligence dashboard built with Next.js.
 
+## Requirements
+
+Use a **Node LTS release (20 or 22)**. Newer "Current" releases (e.g. Node 26)
+break `electron-rebuild`, which desktop mode needs to compile `better-sqlite3`
+for Electron — the failure shows up as a `yargs`/`require is not defined` crash
+during `npm run dev:desktop`. The web renderer (`npm run dev:web`) is not
+affected by Node version.
+
+On Apple Silicon Macs, make sure your Node itself is an arm64 build (`node -p
+process.arch` should print `arm64`); an x86_64 Node produces an x86_64
+`better-sqlite3` that the arm64 Electron cannot load.
+
 ## Electron Phase 1
 
 Phase 1 adds a thin Electron desktop shell around the existing app without rebuilding the React/Next.js UI.

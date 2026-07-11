@@ -5,6 +5,9 @@
   "main": "electron/main.js",
   "author": "Montster27",
   "private": true,
+  "engines": {
+    "node": ">=20 <23"
+  },
   "scripts": {
     "dev": "next dev --experimental-https",
     "dev:web": "next dev --port 3000",
