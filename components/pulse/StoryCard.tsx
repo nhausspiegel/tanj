@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
-import { PULSE_ACCENT, exactDateLabel, sourceMark, type PulseStory } from "@/lib/pulse";
+import { PULSE_ACCENT, exactDateLabel, type PulseStory } from "@/lib/pulse";
 import { HeartIcon, XIcon } from "@/components/pulse/icons";
 
 function scoreExplanation(story: PulseStory, scoreText: string): string {
@@ -48,8 +48,8 @@ export function StoryCard({
   onDislike,
 }: StoryCardProps) {
   const [imgFailed, setImgFailed] = useState(false);
-  const scoreValue = Number.parseFloat(scoreText) || 0;
   const dismissed = vote === -1;
+  const scoreValue = Number.parseFloat(scoreText) || 0;
   const heartStyle: CSSProperties = {
     width: 26,
     height: 26,
@@ -113,19 +113,40 @@ export function StoryCard({
             }}
           />
         ) : null}
-        <span
+        <div
+          title={scoreExplanation(story, scoreText)}
           style={{
             position: "absolute",
-            left: 14,
-            bottom: 10,
-            fontSize: 34,
-            fontWeight: 900,
-            letterSpacing: "-0.04em",
-            color: "rgba(255,255,255,0.16)",
+            left: 10,
+            top: 10,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            lineHeight: 1,
+            background: "rgba(19,26,37,0.65)",
+            border: "1px solid rgba(74,208,122,0.35)",
+            backdropFilter: "blur(6px)",
+            borderRadius: 8,
+            padding: "5px 9px",
+            cursor: "default",
           }}
         >
-          {sourceMark(story.source)}
-        </span>
+          <span style={{ fontSize: 15, fontWeight: 900, color: "#4AD07A", letterSpacing: "-0.02em" }}>
+            {scoreValue.toFixed(1)}
+          </span>
+          <span
+            style={{
+              fontSize: 7.5,
+              fontWeight: 800,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: "rgba(74,208,122,0.65)",
+              marginTop: 1,
+            }}
+          >
+            score
+          </span>
+        </div>
         {isNew ? (
           <span
             title="New since your last refresh"
@@ -232,38 +253,28 @@ export function StoryCard({
             fontSize: 11.5,
             color: "#8a8894",
             fontWeight: 600,
+            minWidth: 0,
           }}
         >
           <span
-            title={scoreExplanation(story, scoreText)}
-            style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: "default" }}
+            style={{
+              color: "#b5b3be",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              minWidth: 0,
+            }}
           >
-            <span style={{ color: "#4AD07A", fontWeight: 800 }}>{scoreText}</span>
-            <span
-              style={{
-                width: 22,
-                height: 4,
-                borderRadius: 2,
-                background: "rgba(255,255,255,0.1)",
-                overflow: "hidden",
-              }}
-            >
-              <span
-                style={{
-                  display: "block",
-                  height: "100%",
-                  width: `${Math.max(0, Math.min(100, scoreValue * 10))}%`,
-                  background: "#4AD07A",
-                  borderRadius: 2,
-                }}
-              />
-            </span>
+            {story.source}
           </span>
-          <span style={dot} />
-          <span style={{ color: "#b5b3be" }}>{story.source}</span>
-          <span style={dot} />
-          <span title={exactDateLabel(story.publishedAt) || undefined}>{story.timeAgo}</span>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 5 }}>
+          <span style={{ ...dot, flexShrink: 0 }} />
+          <span
+            title={exactDateLabel(story.publishedAt) || undefined}
+            style={{ flexShrink: 0, whiteSpace: "nowrap" }}
+          >
+            {story.timeAgo}
+          </span>
+          <div style={{ display: "flex", gap: 5, flexShrink: 0, marginLeft: "auto" }}>
             <button
               className="pulse-vote"
               onClick={onLike}
