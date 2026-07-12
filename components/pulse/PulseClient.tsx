@@ -50,6 +50,7 @@ export function PulseClient() {
     rankedStories,
     brief,
     cache,
+    newSinceRefreshAt,
     refreshing,
     refreshProgress,
     refreshElapsedSeconds,
@@ -164,6 +165,9 @@ export function PulseClient() {
         saved: !!saved[story.id],
         vote: (votes[story.id] as 1 | -1 | 0) || 0,
         hovered: hovered === story.id,
+        isNew: Boolean(
+          story.processedAt && newSinceRefreshAt && story.processedAt > newSinceRefreshAt,
+        ),
         onOpen: () => setSelected(story.id),
         onEnter: () => setHovered(story.id),
         onLeave: () => setHovered((h) => (h === story.id ? null : h)),
@@ -176,7 +180,7 @@ export function PulseClient() {
           setVote(story.id, -1);
         },
       })),
-    [score, saved, votes, hovered, setVote],
+    [score, saved, votes, hovered, setVote, newSinceRefreshAt],
   );
 
   const rows: RowViewModel[] = useMemo(() => {
@@ -246,14 +250,18 @@ export function PulseClient() {
           lead: story.tldr,
           source: story.source,
           timeAgo: story.timeAgo,
+          publishedAt: story.publishedAt,
           scoreText: scoreLabel(rankedScore(story)),
           scoreValue: rankedScore(story),
           sourceCount: story.sources.length,
           domainHue: domainHue(story.domain),
           topicLabel: domainLabel(story.domain),
+          isNew: Boolean(
+            story.processedAt && newSinceRefreshAt && story.processedAt > newSinceRefreshAt,
+          ),
           onOpen: () => setSelected(story.id),
         })),
-    [rankedStories, rankedScore],
+    [rankedStories, rankedScore, newSinceRefreshAt],
   );
 
   // ── Sidebar view-models ───────────────────────────────────────────

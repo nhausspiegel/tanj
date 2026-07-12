@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { PULSE_ACCENT, domainHue, domainLabel, sourceMark, type PulseSourceRef, type PulseStory } from "@/lib/pulse";
+import { PULSE_ACCENT, domainHue, domainLabel, exactDateLabel, sourceMark, type PulseSourceRef, type PulseStory } from "@/lib/pulse";
 import { recencyLabel, recencyScore, trustLabel } from "@/lib/outlets";
 
 const dot: CSSProperties = {
@@ -221,7 +221,7 @@ export function StoryModal({
             <span style={dot} />
             <span style={{ color: "#c9c7d0" }}>{story.source}</span>
             <span style={dot} />
-            <span>{story.timeAgo}</span>
+            <span title={exactDateLabel(story.publishedAt) || undefined}>{story.timeAgo}</span>
             <span style={dot} />
             <span>IMP {story.importance}/5</span>
           </div>

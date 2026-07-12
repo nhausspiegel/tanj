@@ -77,6 +77,7 @@ export function normalizeArticleDomain(value: unknown): ArticleDomain {
 export type Article = {
   id: string;
   date: string;
+  publishedAt?: string;
   processed_at: string;
   week: string;
   domain: ArticleDomain;

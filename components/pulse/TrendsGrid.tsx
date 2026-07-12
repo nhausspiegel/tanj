@@ -1,6 +1,6 @@
 "use client";
 
-import { PULSE_ACCENT } from "@/lib/pulse";
+import { PULSE_ACCENT, exactDateLabel } from "@/lib/pulse";
 
 export type TrendItem = {
   key: string;
@@ -9,6 +9,8 @@ export type TrendItem = {
   lead: string;
   source: string;
   timeAgo: string;
+  publishedAt?: string;
+  isNew: boolean;
   scoreText: string;
   scoreValue: number;
   sourceCount: number;
@@ -154,7 +156,29 @@ export function TrendsGrid({ items }: { items: TrendItem[] }) {
                 <span style={{ fontSize: 11, fontWeight: 600, color: "#66646f" }}>·</span>
                 <span style={{ fontSize: 11, fontWeight: 600, color: "#8a8894" }}>{tr.source}</span>
                 <span style={{ fontSize: 11, fontWeight: 600, color: "#66646f" }}>·</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: "#8a8894" }}>{tr.timeAgo}</span>
+                <span
+                  style={{ fontSize: 11, fontWeight: 600, color: "#8a8894" }}
+                  title={exactDateLabel(tr.publishedAt) || undefined}
+                >
+                  {tr.timeAgo}
+                </span>
+                {tr.isNew ? (
+                  <span
+                    title="New since your last refresh"
+                    style={{
+                      fontSize: 9.5,
+                      fontWeight: 800,
+                      letterSpacing: "0.1em",
+                      color: "#131A25",
+                      background: PULSE_ACCENT,
+                      padding: "3px 6px",
+                      borderRadius: 4,
+                      flexShrink: 0,
+                    }}
+                  >
+                    NEW
+                  </span>
+                ) : null}
               </div>
               <p
                 style={{

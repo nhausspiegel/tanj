@@ -34,7 +34,9 @@ export type PulseStory = {
   id: string;
   domain: ArticleDomain;
   source: string; // lead (most recent) source name — back-compat single display
-  timeAgo: string; // time since the most recent contributing source
+  timeAgo: string; // time since the most recent contributing source was published
+  publishedAt?: string; // full ISO timestamp backing timeAgo, for exact-date tooltips
+  processedAt?: string; // when this story was ingested locally — drives the "new" badge
   title: string;
   tldr: string;
   url?: string; // lead source's article url
@@ -135,6 +137,18 @@ const WEEK = 7 * DAY;
 const MONTH = 30 * DAY;
 const YEAR = 365 * DAY;
 
+// Exact publish date/time for a hover tooltip — "1d ago" alone can't answer
+// "1 day ago as of when?".
+export function exactDateLabel(value?: string): string {
+  if (!value) return "";
+  const then = new Date(value);
+  if (Number.isNaN(then.getTime())) return "";
+  return then.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
 export function relativeTime(value?: string, now: number = Date.now()): string {
   if (!value) return "";
   const then = new Date(value).getTime();
@@ -191,7 +205,7 @@ function clusterToStory(
   const sources: PulseSourceRef[] = members
     .map((article) => {
       const name = article.source ?? "Unknown";
-      const hoursAgo = hoursSince(article.processed_at || article.date, now);
+      const hoursAgo = hoursSince(article.publishedAt || article.date, now);
       const { reputability, reach } = outletTrust(name);
       return {
         name,
@@ -214,6 +228,12 @@ function clusterToStory(
     domain: cluster.domain,
     source: mostRecent?.name ?? "Unknown",
     timeAgo: mostRecent ? relativeTime(new Date(now - mostRecent.hoursAgo * 3600_000).toISOString(), now) : "",
+    publishedAt: mostRecent ? new Date(now - mostRecent.hoursAgo * 3600_000).toISOString() : undefined,
+    // Most recently *ingested* member — whichever source last refreshed the cluster.
+    processedAt: members.reduce<string | undefined>((latest, article) => {
+      if (!article.processed_at) return latest;
+      return !latest || article.processed_at > latest ? article.processed_at : latest;
+    }, undefined),
     title: cluster.headline,
     tldr: lead?.summary ?? cluster.summary,
     url: mostRecent?.url,
@@ -228,7 +248,7 @@ function clusterToStory(
 export function articlesToStories(articles: Article[], now: number = Date.now()): PulseStory[] {
   return articles.map((article) => {
     const name = article.source ?? "Unknown";
-    const hoursAgo = hoursSince(article.processed_at || article.date, now);
+    const hoursAgo = hoursSince(article.publishedAt || article.date, now);
     const { reputability, reach } = outletTrust(name);
     const sourceRef: PulseSourceRef = {
       name,
@@ -243,7 +263,9 @@ export function articlesToStories(articles: Article[], now: number = Date.now())
       id: article.id,
       domain: article.domain,
       source: name,
-      timeAgo: relativeTime(article.processed_at || article.date, now),
+      timeAgo: relativeTime(article.publishedAt || article.date, now),
+      publishedAt: article.publishedAt || article.date || undefined,
+      processedAt: article.processed_at || undefined,
       title: article.headline,
       tldr: article.summary,
       url: article.url,

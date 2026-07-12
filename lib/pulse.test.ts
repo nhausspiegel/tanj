@@ -73,7 +73,8 @@ describe("liveScore", () => {
 const BASE_ARTICLE: Article = {
   id: "x1",
   date: "2026-07-09",
-  processed_at: "2026-07-09T12:00:00Z",
+  publishedAt: "2026-07-09T12:00:00Z",
+  processed_at: "2026-07-09T18:00:00Z",
   week: "2026-W28",
   domain: "Robotics",
   headline: "A humanoid ships",

@@ -31,6 +31,7 @@ export type PulseData = {
   rankedStories: PulseStory[]; // clustered/merged — Trends only
   brief: PulseBrief;
   cache: PulseCacheStatus;
+  newSinceRefreshAt: string | null;
   ready: boolean;
   refreshing: boolean;
   refreshProgress: PulseRefreshProgress | null;
@@ -90,7 +91,9 @@ export function usePulseData(): PulseData {
   const [refreshWarning, setRefreshWarning] = useState<string | null>(null);
   const [refreshElapsedSeconds, setRefreshElapsedSeconds] = useState(0);
   const [nonce, setNonce] = useState(0);
+  const [newSinceRefreshAt, setNewSinceRefreshAt] = useState<string | null>(null);
   const loadingRef = useRef(false);
+  const lastRefreshAtRef = useRef<string | null>(null);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
@@ -133,6 +136,18 @@ export function usePulseData(): PulseData {
           typeof raw === "string"
             ? raw
             : (raw as { lastRefreshAt?: string } | null | undefined)?.lastRefreshAt;
+        // Track the "new since last refresh" boundary: when the completed
+        // refresh's timestamp advances, whatever was the boundary a moment
+        // ago becomes the new cutoff (articles ingested after it are "new"),
+        // and this refresh's timestamp becomes the next boundary — so the
+        // badge set shifts forward and clears on its own next refresh,
+        // rather than needing to be dismissed.
+        if (refreshedAt && refreshedAt !== lastRefreshAtRef.current) {
+          if (lastRefreshAtRef.current) {
+            setNewSinceRefreshAt(lastRefreshAtRef.current);
+          }
+          lastRefreshAtRef.current = refreshedAt;
+        }
         setCache({
           articleCount: mapped.length,
           refreshedAgo: relativeMinutes(refreshedAt),
@@ -250,6 +265,7 @@ export function usePulseData(): PulseData {
     rankedStories,
     brief,
     cache,
+    newSinceRefreshAt,
     ready,
     refreshing,
     refreshProgress,

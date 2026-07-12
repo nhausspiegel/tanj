@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { PULSE_ACCENT, sourceMark, type PulseStory } from "@/lib/pulse";
+import { PULSE_ACCENT, exactDateLabel, sourceMark, type PulseStory } from "@/lib/pulse";
 import { ThumbIcon } from "@/components/pulse/icons";
 
 function scoreExplanation(story: PulseStory, scoreText: string): string {
@@ -18,6 +18,7 @@ export type StoryCardProps = {
   saved: boolean;
   vote: 1 | -1 | 0;
   hovered: boolean;
+  isNew: boolean;
   onOpen: () => void;
   onEnter: () => void;
   onLeave: () => void;
@@ -39,6 +40,7 @@ export function StoryCard({
   saved,
   vote,
   hovered,
+  isNew,
   onOpen,
   onEnter,
   onLeave,
@@ -103,12 +105,31 @@ export function StoryCard({
         >
           {sourceMark(story.source)}
         </span>
+        {isNew ? (
+          <span
+            title="New since your last refresh"
+            style={{
+              position: "absolute",
+              right: 10,
+              top: 10,
+              fontSize: 10,
+              fontWeight: 800,
+              letterSpacing: "0.1em",
+              color: "#131A25",
+              background: PULSE_ACCENT,
+              padding: "4px 8px",
+              borderRadius: 4,
+            }}
+          >
+            NEW
+          </span>
+        ) : null}
         {saved ? (
           <span
             style={{
               position: "absolute",
               right: 10,
-              top: 10,
+              top: isNew ? 34 : 10,
               fontSize: 10,
               fontWeight: 800,
               letterSpacing: "0.1em",
@@ -220,7 +241,7 @@ export function StoryCard({
           <span style={dot} />
           <span style={{ color: "#b5b3be" }}>{story.source}</span>
           <span style={dot} />
-          <span>{story.timeAgo}</span>
+          <span title={exactDateLabel(story.publishedAt) || undefined}>{story.timeAgo}</span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 5 }}>
             <button
               className="pulse-vote"

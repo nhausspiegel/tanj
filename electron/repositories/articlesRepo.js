@@ -157,6 +157,7 @@ function articleFromRow(row, tags) {
   return {
     id: row.id,
     date: row.published_at ? row.published_at.slice(0, 10) : "",
+    publishedAt: row.published_at ?? "",
     processed_at: row.processed_at ?? "",
     week: row.week ?? "",
     domain: primaryDomain,
