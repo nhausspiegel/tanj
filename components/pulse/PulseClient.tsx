@@ -5,9 +5,9 @@ import {
   PULSE_ACCENT,
   PULSE_DOMAIN_ORDER,
   cardThumb,
+  computeScore,
   domainHue,
   domainLabel,
-  liveScore,
   scoreLabel,
   thumbGradient,
   type PulseStory,
@@ -111,13 +111,13 @@ export function PulseClient() {
   }, [rankedStories]);
 
   const score = useCallback(
-    (story: PulseStory) => liveScore(story, stories, saved, votes),
-    [stories, saved, votes],
+    (story: PulseStory) => computeScore(story, followed),
+    [followed],
   );
 
   const rankedScore = useCallback(
-    (story: PulseStory) => liveScore(story, rankedStories, saved, votes),
-    [rankedStories, saved, votes],
+    (story: PulseStory) => computeScore(story, followed),
+    [followed],
   );
 
   const savedIds = useMemo(

@@ -20,17 +20,23 @@ Working list of open items from ongoing PULSE work. Delete items once shipped
   - The 7-day activity lines could later be fed by the pattern engine's
     week-over-week tag deltas (`electron/repositories/patternsRepo.js`) instead
     of raw article counts, if a theme/velocity view is wanted.
-- **"score" is confusing, no redesign decided yet** — diagnosed 2026-07-12:
-  `score` = `baseScore` (from `personalized_score`, itself importance + an
-  invisible hardcoded tag/domain preference boost nobody can configure) run
-  through `liveScore()`'s live per-session like/dismiss adjustments. `IMP
-  X/5` is just the raw importance rating alone — the two numbers measure
-  different things and that's not obvious from the UI. The original
-  `news_agg` repo's `impactScore` (`lib/scoring.ts`) is a cleaner, legible
-  formula: source-count + recency + importance(max/avg) + tag/domain
-  alignment + novelty, no live-vote layer. Owner hasn't picked a direction
-  yet (redesign the formula, rename/relabel, drop entirely, etc.) — surface
-  the badge as-is until they do.
+- ~~**"score" is confusing, no redesign decided yet**~~ — shipped
+  2026-07-12: split into two distinct formulas per
+  `pulse_score_plan_new.md`. Dashboard cards now show a **relevance score**
+  (`computeArticleRelevanceScore` — recency + importance + strategic-tag
+  boost + novelty decay against `cluster_history`); Trends cards show a
+  **momentum score** (`computeTrendMomentumScore` — corroboration + velocity
+  since the last snapshot + recency + importance). Both still take a +1
+  "you follow this domain" nudge via `computeScore` (replaces the old
+  `liveScore`, which dropped the like/dismiss-driven live adjustments —
+  votes/saved are still used for dismiss-sort and feedback logging,
+  just not for scoring anymore). `lib/scoring.ts`'s cluster-impact
+  primitives (recency/importance/tag/novelty/source-count) are now shared
+  between the two new formulas and the untouched `computeClusterImpactScore`
+  internal clustering sort key. `usePulseData` reads `desktop.memory.getState()`
+  for history and writes back via `desktop.memory.snapshotClusters()` after
+  every load, including Dashboard articles wrapped as trivial one-article
+  clusters (`articleToSnapshotCluster`).
 
 ## Deferred (explicitly on hold, don't start without being asked)
 

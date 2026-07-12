@@ -7,6 +7,13 @@ import {
 } from "@/lib/types";
 import { clusterArticles } from "@/lib/clustering";
 import { outletTrust, sourceComposite } from "@/lib/outlets";
+import {
+  importanceScoreFromValues,
+  noveltyScoreFromOverlap,
+  recencyScoreFromAgeHours,
+  sourceCountScore,
+  tagAlignmentScoreFromTags,
+} from "@/lib/scoring";
 
 // ── TANJ palette ──────────────────────────────────────────────────
 // Exported as CSS custom properties (defined in app/globals.css :root),
@@ -57,10 +64,22 @@ export type PulseStory = {
   url?: string; // lead source's article url
   imageUrl?: string; // real thumbnail scraped from the source feed, if any
   importance: number; // 1–5
+  tags: string[];
   sources: PulseSourceRef[]; // every contributing article, sorted most-recent-first
   baseScore: number; // 1–10 personalized base, before live vote/save adjustments
   impactScore?: number; // 1–10 cluster impact (source count + recency + importance + alignment + novelty)
   tags?: string[]; // topical tags/entities — used by Trends for the event chips
+};
+
+// One row of prior scoring history for a story/cluster, read back from
+// cluster_history (electron/repositories/memoryRepo.js) to feed novelty
+// (Dashboard) and velocity (Trends) terms. `id` is the cluster/article id.
+export type PulseHistorySnapshot = {
+  id: string;
+  tags: string[];
+  headline: string;
+  sourceCount: number;
+  snapshotAt: string;
 };
 
 // Domain hue (HSL hue used for dots / badges / thumb gradients). The six
@@ -201,28 +220,80 @@ function hoursSince(value: string | undefined, now: number): number {
   return Math.max(0, (now - then) / (60 * 60 * 1000));
 }
 
-function articleBaseScore(article: Article): number {
-  const raw = (article as { personalized_score?: number | null }).personalized_score;
-  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
-    return clamp(raw, 1, 10);
-  }
-  // Derive from LLM importance when no personalized score was stored.
-  return clamp(article.importance * 1.6 + 1, 1, 10);
+// Dashboard relevance score: "should this show up for you" — one article,
+// no corroboration signal (structurally undefined at n=1). See
+// pulse_score_plan_new.md for why this differs from the Trends formula.
+export function computeArticleRelevanceScore(inputs: {
+  hoursAgo: number;
+  importance: number;
+  tags: string[];
+  headline: string;
+  previousStories: PulseHistorySnapshot[];
+}): number {
+  const raw =
+    recencyScoreFromAgeHours(inputs.hoursAgo) +
+    importanceScoreFromValues([inputs.importance]) +
+    tagAlignmentScoreFromTags(inputs.tags) +
+    noveltyScoreFromOverlap(inputs.tags, inputs.headline, inputs.previousStories);
+  return clamp(raw, 1, 10);
 }
 
-// Multiple outlets corroborating a story is itself a signal — bump the base
-// score modestly per additional source, capped so a single strong story
-// can't be dwarfed by wire-service pickup volume alone.
-function clusterBaseScore(members: Article[]): number {
-  const best = Math.max(...members.map(articleBaseScore));
-  const corroborationBoost = clamp((members.length - 1) * 0.4, 0, 1.5);
-  return clamp(best + corroborationBoost, 1, 10);
+// Bucketed delta-since-last-snapshot, not a true rate: refresh cadence is
+// roughly constant in this app, so normalizing by elapsed hours wouldn't
+// change the ranking in practice.
+function velocityScore(sourceCount: number, previousSnapshot: PulseHistorySnapshot | undefined): number {
+  if (!previousSnapshot) return 0.75;
+  const delta = sourceCount - previousSnapshot.sourceCount;
+  if (delta >= 2) return 2;
+  if (delta === 1) return 1;
+  return 0;
 }
 
-function clusterToStory(
+// Trends momentum score: "what's blowing up right now" — a merged cluster,
+// where corroboration and its growth (velocity) are meaningful signals a
+// lone article can never carry.
+export function computeTrendMomentumScore(inputs: {
+  sourceCount: number;
+  hoursAgo: number;
+  importanceValues: number[];
+  previousSnapshot: PulseHistorySnapshot | undefined;
+}): number {
+  const raw =
+    sourceCountScore(inputs.sourceCount) +
+    velocityScore(inputs.sourceCount, inputs.previousSnapshot) +
+    recencyScoreFromAgeHours(inputs.hoursAgo) +
+    importanceScoreFromValues(inputs.importanceValues);
+  return clamp(raw, 1, 10);
+}
+
+// Wraps a single Dashboard article as a trivial one-article StoryCluster so
+// it can ride the same cluster_history snapshot-write payload as real
+// Trends clusters. Only used to build that payload, never for scoring.
+export function articleToSnapshotCluster(article: Article, baseScore: number): StoryCluster {
+  const seenAt = article.processed_at || article.date;
+  return {
+    id: article.id,
+    headline: article.headline,
+    summary: article.summary,
+    whyItMatters: [],
+    domain: article.domain,
+    tags: article.tags,
+    entities: [],
+    articleIds: [article.id],
+    sources: [article.source ?? "Unknown"],
+    sourceCount: 1,
+    confidence: "low",
+    impactScore: baseScore,
+    firstSeenAt: seenAt,
+    lastSeenAt: seenAt,
+  };
+}
+
+export function clusterToStory(
   cluster: StoryCluster,
   articlesById: Map<string, Article>,
   now: number,
+  previousStories: PulseHistorySnapshot[] = [],
 ): PulseStory {
   const members = cluster.articleIds
     .map((id) => articlesById.get(id))
@@ -267,16 +338,25 @@ function clusterToStory(
     url: mostRecent?.url,
     imageUrl: members.find((article) => article.imageUrl)?.imageUrl,
     importance: lead?.importance ?? 3,
-    sources,
-    baseScore: clusterBaseScore(members.length ? members : lead ? [lead] : []),
-    impactScore: cluster.impactScore,
     tags: cluster.tags,
+    sources,
+    baseScore: computeTrendMomentumScore({
+      sourceCount: sources.length,
+      hoursAgo: mostRecent?.hoursAgo ?? 24 * 365,
+      importanceValues: members.map((article) => article.importance),
+      previousSnapshot: previousStories.find((s) => s.id === cluster.id),
+    }),
+    impactScore: cluster.impactScore,
   };
 }
 
 // One story per article — no merging. Used by the Dashboard (Netflix rows,
 // hero, My Likes): keep articles separate for now, per-source.
-export function articlesToStories(articles: Article[], now: number = Date.now()): PulseStory[] {
+export function articlesToStories(
+  articles: Article[],
+  now: number = Date.now(),
+  previousStories: PulseHistorySnapshot[] = [],
+): PulseStory[] {
   return articles.map((article) => {
     const name = article.source ?? "Unknown";
     const hoursAgo = hoursSince(article.publishedAt || article.date, now);
@@ -303,45 +383,38 @@ export function articlesToStories(articles: Article[], now: number = Date.now())
       url: article.url,
       imageUrl: article.imageUrl,
       importance: article.importance,
-      sources: [sourceRef],
-      baseScore: articleBaseScore(article),
       tags: article.tags,
+      sources: [sourceRef],
+      baseScore: computeArticleRelevanceScore({
+        hoursAgo,
+        importance: article.importance,
+        tags: article.tags,
+        headline: article.headline,
+        previousStories,
+      }),
     };
   });
 }
 
 // One story per CLUSTER — merges same-story articles from different outlets
 // and boosts score for corroboration. Used only by Trends (the ranked feed).
-export function clusterArticlesToStories(articles: Article[], now: number = Date.now()): PulseStory[] {
+export function clusterArticlesToStories(
+  articles: Article[],
+  now: number = Date.now(),
+  previousStories: PulseHistorySnapshot[] = [],
+): PulseStory[] {
   const clusters = clusterArticles(articles);
   const articlesById = new Map(articles.map((article) => [article.id, article]));
-  return clusters.map((cluster) => clusterToStory(cluster, articlesById, now));
+  return clusters.map((cluster) => clusterToStory(cluster, articlesById, now, previousStories));
 }
 
 export type PulseVoteMap = Record<string, 1 | -1 | 0>;
 export type PulseBoolMap = Record<string, boolean>;
 
-// Live personalized score: real base + prototype-style adjustments so boost /
-// suppress / save re-rank instantly. Clamped 1–10, shown as "N.N score".
-export function liveScore(
-  story: PulseStory,
-  stories: PulseStory[],
-  saved: PulseBoolMap,
-  votes: PulseVoteMap,
-): number {
-  const savedBoost =
-    stories.filter((s) => saved[s.id] && s.domain === story.domain).length * 0.2;
-
-  let topicNet = 0;
-  for (const s of stories) {
-    if (s.domain === story.domain && votes[s.id]) topicNet += votes[s.id];
-  }
-  const topicAdj = clamp(topicNet * 0.2, -1, 1);
-
-  const own = votes[story.id] || 0;
-  const ownAdj = own === 1 ? 1 : own === -1 ? -2 : 0;
-
-  return clamp(story.baseScore + savedBoost + topicAdj + ownAdj, 1, 10);
+// Real base score + a small "you follow this domain" nudge. Clamped 1–10,
+// shown as "N.N score".
+export function computeScore(story: PulseStory, followed: PulseBoolMap): number {
+  return clamp(story.baseScore + (followed[story.domain] ? 1 : 0), 1, 10);
 }
 
 export function scoreLabel(score: number): string {
@@ -432,6 +505,7 @@ export const SEED_STORIES: PulseStory[] = SEED_INPUT.map((s) => {
     ...s,
     publishedAt,
     importance: 3 + (h % 3),
+    tags: [],
     baseScore: clamp(4 + (h % 40) / 10, 1, 10),
     sources: [
       {

@@ -5,10 +5,7 @@ import { PULSE_ACCENT, PULSE_ACCENT_HIGHLIGHT, PULSE_ACCENT_SECONDARY, exactDate
 import { HeartIcon, XIcon } from "@/components/pulse/icons";
 
 function scoreExplanation(story: PulseStory, scoreText: string): string {
-  const n = story.sources.length;
-  const corroboration =
-    n > 1 ? `Corroborated by ${n} sources, which lifts the score.` : "Reported by one source so far.";
-  return `${scoreText} — ${corroboration} Adjusts with your boosts, suppresses, and saves.`;
+  return `${scoreText} — how relevant this is to you: how recent it is, its AI importance rating, whether it touches a strategic topic, and whether it's a repeat of something already surfaced. Plus a small bonus if you follow this domain.`;
 }
 
 export type StoryCardProps = {

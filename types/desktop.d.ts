@@ -193,6 +193,9 @@ declare global {
     impactScore: number | null;
     firstSeenAt: string | null;
     lastSeenAt: string | null;
+    tags: string[];
+    headline: string;
+    sourceCount: number;
   };
 
   type DesktopMemoryLayerState = {

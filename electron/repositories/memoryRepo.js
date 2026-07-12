@@ -430,6 +430,9 @@ function getMemoryState(db) {
       impactScore: snapshot.impactScore,
       firstSeenAt: snapshot.summary?.firstSeenAt ?? null,
       lastSeenAt: snapshot.summary?.lastSeenAt ?? null,
+      tags: snapshot.summary?.tags ?? [],
+      headline: snapshot.summary?.headline ?? "",
+      sourceCount: snapshot.summary?.sourceCount ?? 0,
     };
   }
 

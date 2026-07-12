@@ -5,12 +5,15 @@ import {
   articlesToStories,
   clusterArticlesToStories,
   cardThumb,
+  computeArticleRelevanceScore,
+  computeScore,
+  computeTrendMomentumScore,
   domainHue,
   domainLabel,
-  liveScore,
   relativeTime,
   scoreLabel,
   sourceMark,
+  type PulseHistorySnapshot,
   type PulseStory,
 } from "@/lib/pulse";
 
@@ -23,6 +26,7 @@ function story(overrides: Partial<PulseStory> = {}): PulseStory {
     title: "Title",
     tldr: "Summary",
     importance: 3,
+    tags: [],
     baseScore: 5,
     sources: [{ name: "TechCrunch", hoursAgo: 24, summary: "Summary", reputability: 4, reach: 5, composite: 3 }],
     ...overrides,
@@ -43,30 +47,82 @@ describe("relativeTime", () => {
   });
 });
 
-describe("liveScore", () => {
-  it("boosts the story's own score and re-ranks its domain", () => {
-    const a = story({ id: "a", domain: "LLM", baseScore: 5 });
-    const b = story({ id: "b", domain: "LLM", baseScore: 5 });
-    const stories = [a, b];
-
-    expect(liveScore(a, stories, {}, {})).toBe(5);
-
-    // Own boost: +1 to a, plus +0.2 domain-net nudge to every LLM story.
-    const boosted = liveScore(a, stories, {}, { a: 1 });
-    expect(boosted).toBeGreaterThan(liveScore(b, stories, {}, { a: 1 }));
-    expect(boosted).toBeCloseTo(6.2, 5);
-  });
-
-  it("suppresses the story's own score more than it boosts", () => {
-    const a = story({ id: "a", baseScore: 5 });
-    expect(liveScore(a, [a], {}, { a: -1 })).toBeCloseTo(2.8, 5);
+describe("computeScore", () => {
+  it("adds a +1 nudge when the story's domain is followed", () => {
+    const s = story({ domain: "LLM", baseScore: 5 });
+    expect(computeScore(s, {})).toBe(5);
+    expect(computeScore(s, { LLM: true })).toBe(6);
   });
 
   it("clamps into the 1–10 range", () => {
-    const hi = story({ id: "hi", baseScore: 10 });
-    const lo = story({ id: "lo", baseScore: 1 });
-    expect(liveScore(hi, [hi], {}, { hi: 1 })).toBe(10);
-    expect(liveScore(lo, [lo], {}, { lo: -1 })).toBe(1);
+    const hi = story({ domain: "LLM", baseScore: 10 });
+    const lo = story({ domain: "LLM", baseScore: 1 });
+    expect(computeScore(hi, { LLM: true })).toBe(10);
+    expect(computeScore(lo, {})).toBe(1);
+  });
+});
+
+describe("computeArticleRelevanceScore", () => {
+  const base = { importance: 4, tags: [] as string[], headline: "H", previousStories: [] as PulseHistorySnapshot[] };
+
+  it("buckets recency by hours-since-publish", () => {
+    expect(computeArticleRelevanceScore({ ...base, hoursAgo: 6 })).toBeCloseTo(2 + 2.8 + 0 + 1, 5);
+    expect(computeArticleRelevanceScore({ ...base, hoursAgo: 24 })).toBeCloseTo(1.5 + 2.8 + 0 + 1, 5);
+    expect(computeArticleRelevanceScore({ ...base, hoursAgo: 100 })).toBeCloseTo(1 + 2.8 + 0 + 1, 5);
+    expect(computeArticleRelevanceScore({ ...base, hoursAgo: 200 })).toBeCloseTo(0.5 + 2.8 + 0 + 1, 5);
+  });
+
+  it("weights importance at 0.7x for a lone article", () => {
+    expect(computeArticleRelevanceScore({ ...base, hoursAgo: 24, importance: 2 })).toBeCloseTo(
+      1.5 + 2 * 0.7 + 0 + 1,
+      5,
+    );
+  });
+
+  it("boosts strategic tags, clamped at 2", () => {
+    expect(
+      computeArticleRelevanceScore({ ...base, hoursAgo: 24, tags: ["gpu"] }),
+    ).toBeCloseTo(1.5 + 2.8 + 0.6 + 1, 5);
+    expect(
+      computeArticleRelevanceScore({ ...base, hoursAgo: 24, tags: ["gpu", "cloud", "chips", "security"] }),
+    ).toBeCloseTo(1.5 + 2.8 + 2 + 1, 5);
+  });
+
+  it("decays novelty when a previous story strongly overlaps", () => {
+    const previousStories: PulseHistorySnapshot[] = [
+      { id: "prev", tags: ["gpu"], headline: "H", sourceCount: 1, snapshotAt: "2026-07-09T00:00:00Z" },
+    ];
+    expect(
+      computeArticleRelevanceScore({ ...base, hoursAgo: 24, tags: ["gpu"], previousStories }),
+    ).toBeCloseTo(1.5 + 2.8 + 0.6 + 0.25, 5);
+  });
+});
+
+describe("computeTrendMomentumScore", () => {
+  const base = { hoursAgo: 24, importanceValues: [4, 4], previousSnapshot: undefined as PulseHistorySnapshot | undefined };
+
+  it("scales corroboration with source count, clamped at 5 (and overall score at 10)", () => {
+    expect(computeTrendMomentumScore({ ...base, sourceCount: 1 })).toBeCloseTo(1.8 + 0.75 + 1.5 + 2.8, 5);
+    // Raw 5 + 0.75 + 1.5 + 2.8 = 10.05, clamps to 10.
+    expect(computeTrendMomentumScore({ ...base, sourceCount: 3 })).toBeCloseTo(10, 5);
+  });
+
+  it("buckets velocity by growth since the last snapshot", () => {
+    // Low importance so the sum stays under the 1-10 clamp and the velocity
+    // buckets remain distinguishable in the assertions below.
+    const lowImportance = { ...base, importanceValues: [1, 1] };
+    const flat: PulseHistorySnapshot = { id: "c", tags: [], headline: "H", sourceCount: 3, snapshotAt: "x" };
+    const grewOne: PulseHistorySnapshot = { ...flat, sourceCount: 2 };
+    const grewTwo: PulseHistorySnapshot = { ...flat, sourceCount: 1 };
+    expect(
+      computeTrendMomentumScore({ ...lowImportance, sourceCount: 3, previousSnapshot: flat }),
+    ).toBeCloseTo(5 + 0 + 1.5 + 0.7, 5);
+    expect(
+      computeTrendMomentumScore({ ...lowImportance, sourceCount: 3, previousSnapshot: grewOne }),
+    ).toBeCloseTo(5 + 1 + 1.5 + 0.7, 5);
+    expect(
+      computeTrendMomentumScore({ ...lowImportance, sourceCount: 3, previousSnapshot: grewTwo }),
+    ).toBeCloseTo(5 + 2 + 1.5 + 0.7, 5);
   });
 });
 
@@ -89,19 +145,18 @@ describe("articlesToStories (Dashboard — one story per article)", () => {
   const now = Date.parse("2026-07-10T12:00:00Z");
 
   it("maps a single article into a one-source story", () => {
-    const [s] = articlesToStories([{ ...BASE_ARTICLE, personalized_score: 8.2 } as Article], now);
+    const [s] = articlesToStories([BASE_ARTICLE], now);
     expect(s.title).toBe("A humanoid ships");
     expect(s.tldr).toBe("It walks.");
     expect(s.source).toBe("IEEE Spectrum");
-    expect(s.baseScore).toBeCloseTo(8.2, 5);
     expect(s.timeAgo).toBe("1d ago");
     expect(s.sources).toHaveLength(1);
     expect(s.sources[0].name).toBe("IEEE Spectrum");
   });
 
-  it("derives a base score from importance when no personalized score", () => {
+  it("derives the relevance score from recency + importance (no strategic tag, no history)", () => {
     const [s] = articlesToStories([BASE_ARTICLE], now);
-    expect(s.baseScore).toBeCloseTo(4 * 1.6 + 1, 5);
+    expect(s.baseScore).toBeCloseTo(1.5 + 4 * 0.7 + 0 + 1, 5);
   });
 
   it("never merges — same-story articles from different sources stay separate cards", () => {

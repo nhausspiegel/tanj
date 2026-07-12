@@ -5,10 +5,13 @@ import {
   SEED_BRIEF_TEXT,
   SEED_INSIGHTS,
   SEED_STORIES,
+  articleToSnapshotCluster,
   articlesToStories,
-  clusterArticlesToStories,
+  clusterToStory,
+  type PulseHistorySnapshot,
   type PulseStory,
 } from "@/lib/pulse";
+import { clusterArticles } from "@/lib/clustering";
 
 export type PulseBrief = {
   signalParagraph: string;
@@ -119,17 +122,48 @@ export function usePulseData(): PulseData {
       return;
     }
 
-    const [articlesRes, briefRes, lastRefreshRes] = await Promise.allSettled([
+    const [articlesRes, briefRes, lastRefreshRes, memoryRes] = await Promise.allSettled([
       desktop.data.getArticles({ limit: 400 }),
       desktop.data.getBrief(),
       desktop.jobs.getLastRefresh(),
+      desktop.memory?.getState ? desktop.memory.getState() : Promise.resolve(null),
     ]);
 
+    const previousStories: PulseHistorySnapshot[] =
+      memoryRes.status === "fulfilled" && memoryRes.value
+        ? Object.entries(memoryRes.value.latestSnapshots).map(([id, s]) => ({
+            id,
+            tags: s.tags,
+            headline: s.headline,
+            sourceCount: s.sourceCount,
+            snapshotAt: s.snapshotAt,
+          }))
+        : [];
+
     if (articlesRes.status === "fulfilled" && Array.isArray(articlesRes.value)) {
-      const mapped = articlesToStories(articlesRes.value);
+      const articles = articlesRes.value;
+      const mapped = articlesToStories(articles, Date.now(), previousStories);
       if (mapped.length > 0) {
         setStories(mapped);
-        setRankedStories(clusterArticlesToStories(articlesRes.value));
+        const articlesById = new Map(articles.map((article) => [article.id, article]));
+        const clusters = clusterArticles(articles);
+        const now = Date.now();
+        const rankedMapped = clusters.map((cluster) =>
+          clusterToStory(cluster, articlesById, now, previousStories),
+        );
+        setRankedStories(rankedMapped);
+
+        if (desktop.memory?.snapshotClusters) {
+          const dashboardSnapshots = mapped.map((s) =>
+            articleToSnapshotCluster(articlesById.get(s.id)!, s.baseScore),
+          );
+          void desktop.memory
+            .snapshotClusters({
+              clusters: [...dashboardSnapshots, ...clusters],
+              snapshotAt: new Date().toISOString(),
+            })
+            .catch(() => {});
+        }
         // setLastRefresh stores a plain ISO string; tolerate an object too.
         const raw = lastRefreshRes.status === "fulfilled" ? lastRefreshRes.value : undefined;
         const refreshedAt =
