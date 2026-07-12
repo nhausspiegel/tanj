@@ -325,6 +325,18 @@ const migrations = [
       reclassify();
     },
   },
+  {
+    version: 6,
+    name: "add_article_image_url",
+    up(db) {
+      const columns = db.prepare("PRAGMA table_info(articles)").all();
+      const hasImageUrl = columns.some((column) => column.name === "image_url");
+
+      if (!hasImageUrl) {
+        db.exec(`ALTER TABLE articles ADD COLUMN image_url TEXT;`);
+      }
+    },
+  },
 ];
 
 function ensureSchemaVersionTable(db) {

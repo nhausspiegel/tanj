@@ -116,7 +116,7 @@ describe("Electron Phase 2 local data layer", () => {
     const version = db.prepare("SELECT max(version) AS version FROM schema_version").get();
     const articles = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'articles'").get();
 
-    expect(version.version).toBe(5);
+    expect(version.version).toBe(6);
     expect(articles.name).toBe("articles");
   });
 

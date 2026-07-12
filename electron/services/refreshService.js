@@ -29,7 +29,32 @@ const { sources } = require("./sources");
 const { enrichArticlesWithFullText } = require("./articleExtractor");
 const { enrichArticlesWithAI, resetAiStatus } = require("./aiEnrichment");
 
-const parser = new Parser();
+const parser = new Parser({
+  customFields: {
+    item: [
+      ["media:thumbnail", "mediaThumbnail"],
+      ["media:content", "mediaContent"],
+    ],
+  },
+});
+
+// Feed items carry an image in one of a few shapes depending on the outlet:
+// a plain <enclosure> (parsed natively by rss-parser when its type is an
+// image), or the Media RSS namespace's <media:thumbnail>/<media:content>
+// (only reachable via the customFields config above, hence the raw
+// attribute-object access rather than a parsed shorthand).
+function extractImageUrl(item) {
+  if (item.enclosure?.url && /^image\//.test(item.enclosure.type || "")) {
+    return item.enclosure.url;
+  }
+  const thumbnail = item.mediaThumbnail?.$?.url || item.mediaThumbnail?.url;
+  if (thumbnail) return thumbnail;
+  const content = item.mediaContent?.$?.url || item.mediaContent?.url;
+  if (content && /^image\//.test(item.mediaContent?.$?.type || item.mediaContent?.type || "image/")) {
+    return content;
+  }
+  return null;
+}
 const MAX_ARTICLES_PER_SOURCE = 20;
 const MAX_TOTAL_ARTICLES = 500;
 const MAX_FEED_BYTES = 1_500_000;
@@ -239,6 +264,7 @@ function normalizeItem(source, item, preferences) {
     date: parsedDate.toISOString().slice(0, 10),
     week: formatWeek(parsedDate),
     domain: source.category,
+    image_url: extractImageUrl(item),
     tags,
     raw_payload: {
       guid: item.guid,

@@ -40,6 +40,7 @@ export type PulseStory = {
   title: string;
   tldr: string;
   url?: string; // lead source's article url
+  imageUrl?: string; // real thumbnail scraped from the source feed, if any
   importance: number; // 1–5
   sources: PulseSourceRef[]; // every contributing article, sorted most-recent-first
   baseScore: number; // 1–10 personalized base, before live vote/save adjustments
@@ -237,6 +238,7 @@ function clusterToStory(
     title: cluster.headline,
     tldr: lead?.summary ?? cluster.summary,
     url: mostRecent?.url,
+    imageUrl: members.find((article) => article.imageUrl)?.imageUrl,
     importance: lead?.importance ?? 3,
     sources,
     baseScore: clusterBaseScore(members.length ? members : lead ? [lead] : []),
@@ -269,6 +271,7 @@ export function articlesToStories(articles: Article[], now: number = Date.now())
       title: article.headline,
       tldr: article.summary,
       url: article.url,
+      imageUrl: article.imageUrl,
       importance: article.importance,
       sources: [sourceRef],
       baseScore: articleBaseScore(article),

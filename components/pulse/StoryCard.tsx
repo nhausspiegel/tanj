@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { PULSE_ACCENT, exactDateLabel, sourceMark, type PulseStory } from "@/lib/pulse";
 import { ThumbIcon } from "@/components/pulse/icons";
 
@@ -47,6 +47,7 @@ export function StoryCard({
   onLike,
   onDislike,
 }: StoryCardProps) {
+  const [imgFailed, setImgFailed] = useState(false);
   const scoreValue = Number.parseFloat(scoreText) || 0;
   const likeStyle: CSSProperties = {
     width: 26,
@@ -91,7 +92,23 @@ export function StoryCard({
         cursor: "pointer",
       }}
     >
-      <div style={{ position: "relative", height: 150, background: thumb }}>
+      <div style={{ position: "relative", height: 150, background: thumb, overflow: "hidden" }}>
+        {story.imageUrl && !imgFailed ? (
+          // Feed-hosted images vary too widely in domain to whitelist for next/image.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={story.imageUrl}
+            alt=""
+            onError={() => setImgFailed(true)}
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+        ) : null}
         <span
           style={{
             position: "absolute",

@@ -115,6 +115,10 @@ function normalizeArticle(article) {
     domainSecondary,
     source: typeof article.source === "string" ? article.source : null,
     url: typeof article.url === "string" && article.url.trim() ? article.url.trim() : null,
+    image_url:
+      typeof article.image_url === "string" && article.image_url.trim()
+        ? article.image_url.trim()
+        : null,
     importance: isImportance(article.importance) ? Number(article.importance) : 3,
     personalized_score:
       Number.isFinite(Number(article.personalized_score))
@@ -166,6 +170,7 @@ function articleFromRow(row, tags) {
     summary: row.summary ?? "",
     source: row.source ?? undefined,
     url: row.url ?? undefined,
+    imageUrl: row.image_url ?? undefined,
     tags,
     importance: isImportance(row.effective_importance)
       ? Number(row.effective_importance)
@@ -218,10 +223,10 @@ function upsertArticle(db, input) {
 
   db.prepare(`
     INSERT INTO articles (
-      id, headline, summary, domain, domain_secondary_json, source, url,
+      id, headline, summary, domain, domain_secondary_json, source, url, image_url,
       importance, personalized_score, published_at, processed_at, raw_payload
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       headline = excluded.headline,
       summary = excluded.summary,
@@ -229,6 +234,7 @@ function upsertArticle(db, input) {
       domain_secondary_json = excluded.domain_secondary_json,
       source = excluded.source,
       url = COALESCE(excluded.url, articles.url),
+      image_url = COALESCE(excluded.image_url, articles.image_url),
       importance = excluded.importance,
       personalized_score = excluded.personalized_score,
       published_at = excluded.published_at,
@@ -242,6 +248,7 @@ function upsertArticle(db, input) {
     domainSecondaryJson,
     article.source,
     article.url,
+    article.image_url,
     article.importance,
     article.personalized_score,
     article.published_at,
