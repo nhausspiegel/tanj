@@ -21,6 +21,7 @@ import { StoryRow, type RowItem, type RowViewModel } from "@/components/pulse/St
 import { TrendsGrid, type TrendItem } from "@/components/pulse/TrendsGrid";
 import { WeeklyBrief } from "@/components/pulse/WeeklyBrief";
 import { StoryModal } from "@/components/pulse/StoryModal";
+import { SettingsModal } from "@/components/pulse/SettingsModal";
 
 type Page = "foryou" | "all" | "trends" | "brief";
 
@@ -52,6 +53,7 @@ export function PulseClient() {
   const [heroIndex, setHeroIndex] = useState(0);
   const [hovered, setHovered] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const mainRef = useRef<HTMLDivElement | null>(null);
   const rowRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -334,6 +336,7 @@ export function PulseClient() {
         refreshing={refreshing}
         refreshWarning={refreshWarning}
         onRefresh={triggerRefresh}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
 
       <main
@@ -423,6 +426,8 @@ export function PulseClient() {
           onReadOriginal={() => openExternal(selectedStory.url)}
         />
       ) : null}
+
+      {settingsOpen ? <SettingsModal onClose={() => setSettingsOpen(false)} /> : null}
     </div>
   );
 }

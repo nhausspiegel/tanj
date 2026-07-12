@@ -65,6 +65,8 @@ declare global {
     notificationsEnabled: boolean;
     notificationImportanceThreshold: number;
     personalizedDefault: boolean;
+    aiApiKey?: string;
+    aiProvider?: "openai" | "anthropic";
     appDataPath?: string;
     dbPath?: string;
     lastRefreshError?: string | null;

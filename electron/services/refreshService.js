@@ -535,7 +535,10 @@ function createRefreshService({
       // entirely when nothing is new so a no-op refresh never loads the model.
       if (articles.length && aiEnricher) {
         try {
-          articles = await aiEnricher(articles);
+          articles = await aiEnricher(articles, {
+            provider: preferences.aiProvider,
+            apiKey: preferences.aiApiKey,
+          });
           console.log(`[refresh] AI enrichment completed`);
         } catch (aiError) {
           console.warn(`[refresh] AI enrichment failed: ${aiError instanceof Error ? aiError.message : "Unknown"}`);

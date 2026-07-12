@@ -39,6 +39,7 @@ export function PulseSidebar({
   refreshing,
   refreshWarning,
   onRefresh,
+  onOpenSettings,
 }: {
   navItems: NavItemVM[];
   topics: TopicVM[];
@@ -48,6 +49,7 @@ export function PulseSidebar({
   refreshing: boolean;
   refreshWarning: string | null;
   onRefresh: () => void;
+  onOpenSettings: () => void;
 }) {
   return (
     <aside
@@ -252,6 +254,7 @@ export function PulseSidebar({
       <div style={{ marginTop: "auto", paddingTop: 22 }}>
         <button
           className="pulse-soft"
+          onClick={onOpenSettings}
           style={{
             display: "flex",
             width: "100%",

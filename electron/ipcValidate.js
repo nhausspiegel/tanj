@@ -233,6 +233,20 @@ function sanitizeDomainCollapsePayload(input) {
   };
 }
 
+const AI_PROVIDERS = new Set(["openai", "anthropic"]);
+
+// Unlike clampString, "" is a valid value here (explicit "clear the key"),
+// distinct from the field being absent entirely (leave unchanged).
+function sanitizeApiKey(value) {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 256 ? trimmed.slice(0, 256) : trimmed;
+}
+
+function sanitizeAiProvider(value) {
+  return AI_PROVIDERS.has(value) ? value : undefined;
+}
+
 function sanitizePreferences(input) {
   const src = pickObject(input);
   return {
@@ -242,6 +256,8 @@ function sanitizePreferences(input) {
     notificationsEnabled:
       typeof src.notificationsEnabled === "boolean" ? src.notificationsEnabled : undefined,
     sources: clampStringArray(src.sources, 500),
+    aiApiKey: sanitizeApiKey(src.aiApiKey),
+    aiProvider: sanitizeAiProvider(src.aiProvider),
   };
 }
 

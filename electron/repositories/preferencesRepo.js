@@ -3,7 +3,15 @@ const defaultPreferences = {
   notificationsEnabled: true,
   notificationImportanceThreshold: 5,
   personalizedDefault: false,
+  // BYOK: an API key the user pastes in Settings, for the provider chosen
+  // below. Used by AI enrichment instead of local Ollama when present.
+  // Never sent anywhere except directly to that provider's API, from the
+  // main process.
+  aiProvider: "openai",
+  aiApiKey: "",
 };
+
+const AI_PROVIDERS = new Set(["openai", "anthropic"]);
 
 const defaultScanState = {
   teachingIds: [],
@@ -66,6 +74,16 @@ function savePreferences(db, next) {
 
   if (typeof next.personalizedDefault === "boolean") {
     sanitized.personalizedDefault = next.personalizedDefault;
+  }
+
+  // "" is a valid value (explicit clear); only skip when the field wasn't
+  // sent at all.
+  if (typeof next.aiApiKey === "string") {
+    sanitized.aiApiKey = next.aiApiKey.trim().slice(0, 256);
+  }
+
+  if (AI_PROVIDERS.has(next.aiProvider)) {
+    sanitized.aiProvider = next.aiProvider;
   }
 
   savePreference(db, "settings", sanitized);

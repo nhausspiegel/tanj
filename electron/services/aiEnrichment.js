@@ -1,16 +1,18 @@
 /**
  * AI enrichment for the Electron desktop pipeline.
- * Calls a local Ollama instance (or compatible OpenAI-style API) to:
- *   - Generate a proper 2-sentence summary
- *   - Classify into the correct domain
- *   - Assign specific, meaningful tags
- *   - Score importance 1-5
- *
- * Falls back to heuristic enrichment if AI is unavailable.
+ * Calls, in priority order:
+ *   1. A hosted provider (OpenAI or Anthropic) if the user pasted an API
+ *      key into Settings (BYOK) — no local model required.
+ *   2. A local Ollama instance, if one is running.
+ *   3. Heuristic enrichment (no AI) as the final fallback.
+ * In every case: generates a 2-sentence summary, classifies domain,
+ * assigns tags, scores importance 1-5.
  */
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
-const AI_MODEL = process.env.AI_ARTICLE_MODEL || "gemma4:26b";
+const AI_MODEL = process.env.AI_ARTICLE_MODEL || "qwen2.5-coder:7b";
+const OPENAI_MODEL = process.env.AI_OPENAI_MODEL || "gpt-4o-mini";
+const ANTHROPIC_MODEL = process.env.AI_ANTHROPIC_MODEL || "claude-haiku-4-5";
 const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS) || 45000;
 // Optional keep_alive for enrichment calls (e.g. "2m"); unset uses Ollama's
 // default. Set AI_KEEP_MODEL_LOADED=1 to skip the post-enrichment unload
@@ -204,6 +206,64 @@ async function callOllama(articles) {
   return extractJson(payload.message?.content ?? "");
 }
 
+async function callOpenAI(articles, apiKey) {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: buildUserPrompt(articles) },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0,
+    }),
+    signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`OpenAI ${response.status}: ${text.slice(0, 200)}`);
+  }
+
+  const payload = await response.json();
+  return extractJson(payload.choices?.[0]?.message?.content ?? "");
+}
+
+async function callAnthropic(articles, apiKey) {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens: 2000,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: buildUserPrompt(articles) }],
+      temperature: 0,
+    }),
+    signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`Anthropic ${response.status}: ${text.slice(0, 200)}`);
+  }
+
+  const payload = await response.json();
+  const textBlock = Array.isArray(payload.content)
+    ? payload.content.find((block) => block.type === "text")
+    : null;
+  return extractJson(textBlock?.text ?? "");
+}
+
 /**
  * Ask Ollama to unload the enrichment model. gemma4:26b holds ~17 GB resident
  * and otherwise lingers for the keep_alive window after the last batch — on a
@@ -231,16 +291,30 @@ async function unloadModel() {
  * Enrich articles using AI. Falls back to heuristics on failure.
  * Modifies articles in-place and returns them.
  */
-async function enrichArticlesWithAI(articles) {
-  // Check availability once per session
-  if (aiAvailable === null) {
-    await checkAiAvailability();
+async function enrichArticlesWithAI(articles, options = {}) {
+  const provider = options.provider || (process.env.OPENAI_API_KEY && "openai") ||
+    (process.env.ANTHROPIC_API_KEY && "anthropic") || null;
+  const apiKey =
+    options.apiKey ||
+    (provider === "openai" ? process.env.OPENAI_API_KEY : undefined) ||
+    (provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : undefined);
+  const useHosted = Boolean(provider && apiKey);
+
+  if (!useHosted) {
+    // Only probe/require local Ollama when there's no hosted key (BYOK).
+    if (aiAvailable === null) {
+      await checkAiAvailability();
+    }
+
+    if (!aiAvailable) {
+      console.log("[ai-enrich] AI not available, using heuristic enrichment only");
+      return articles;
+    }
   }
 
-  if (!aiAvailable) {
-    console.log("[ai-enrich] AI not available, using heuristic enrichment only");
-    return articles;
-  }
+  const callModel = useHosted
+    ? (batch) => (provider === "anthropic" ? callAnthropic(batch, apiKey) : callOpenAI(batch, apiKey))
+    : (batch) => callOllama(batch);
 
   const results = [...articles];
   let aiSuccessCount = 0;
@@ -251,8 +325,8 @@ async function enrichArticlesWithAI(articles) {
     const batch = results.slice(i, i + BATCH_SIZE);
 
     try {
-      attemptedOllama = true;
-      const parsed = await callOllama(batch);
+      attemptedOllama = attemptedOllama || !useHosted;
+      const parsed = await callModel(batch);
       const aiArticles = parsed?.articles ?? [];
 
       // Map results back by index
@@ -291,10 +365,12 @@ async function enrichArticlesWithAI(articles) {
       console.warn(`[ai-enrich] Batch ${i}-${i + batch.length} failed: ${msg}`);
       aiFailCount += batch.length;
 
-      // If we get rate limited or auth errors, stop trying
+      // If we get rate limited or auth errors, stop trying this refresh.
+      // Only latch the global Ollama-availability flag for the local path —
+      // a bad hosted key shouldn't suppress a working local Ollama later.
       if (msg.includes("429") || msg.includes("401") || msg.includes("404")) {
         console.warn("[ai-enrich] Disabling AI for this refresh cycle");
-        aiAvailable = false;
+        if (!useHosted) aiAvailable = false;
         break;
       }
     }
