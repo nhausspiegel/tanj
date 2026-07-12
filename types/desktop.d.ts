@@ -243,7 +243,11 @@ declare global {
       jobs: {
         runRefreshNow: () => Promise<DesktopOperationResult>;
         getLastRefresh: () => Promise<string | null>;
+        isRunning: () => Promise<boolean>;
         onRefreshComplete: (callback: (payload: DesktopOperationResult) => void) => () => void;
+        onRefreshProgress: (
+          callback: (payload: { processed: number; total: number }) => void,
+        ) => () => void;
       };
       notifications: {
         requestStatus: () => Promise<{ supported: boolean }>;

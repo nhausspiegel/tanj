@@ -67,6 +67,31 @@ a:hover {
   flex-shrink: 0;
 }
 
+.pulse-progress-track {
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.pulse-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: #DEF478;
+  transition: width 0.4s ease;
+}
+@keyframes pulseIndeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+.pulse-progress-fill--indeterminate {
+  width: 30% !important;
+  animation: pulseIndeterminate 1.1s ease-in-out infinite;
+}
+
 .pulse-nav:hover {
   color: #F7F3E6 !important;
 }

@@ -364,6 +364,7 @@ function createRefreshService({
   db,
   notificationService,
   onComplete,
+  onProgress,
   fetchAllFeeds: fetchAllFeedsOverride,
   fullTextEnricher = enrichArticlesWithFullText,
   aiEnricher = enrichArticlesWithAI,
@@ -535,9 +536,28 @@ function createRefreshService({
       // entirely when nothing is new so a no-op refresh never loads the model.
       if (articles.length && aiEnricher) {
         try {
+          let processedCount = 0;
+          if (onProgress) {
+            try {
+              onProgress({ processed: 0, total: articles.length });
+            } catch (progressError) {
+              console.error("[refreshService] onProgress callback threw:", progressError);
+            }
+          }
           articles = await aiEnricher(articles, {
             provider: preferences.aiProvider,
             apiKey: preferences.aiApiKey,
+            onBatch: (batchArticles) => {
+              upsertArticles(db, batchArticles);
+              processedCount += batchArticles.length;
+              if (onProgress) {
+                try {
+                  onProgress({ processed: processedCount, total: articles.length });
+                } catch (progressError) {
+                  console.error("[refreshService] onProgress callback threw:", progressError);
+                }
+              }
+            },
           });
           console.log(`[refresh] AI enrichment completed`);
         } catch (aiError) {

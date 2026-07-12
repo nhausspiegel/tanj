@@ -375,6 +375,13 @@ async function enrichArticlesWithAI(articles, options = {}) {
       }
     }
 
+    if (typeof options.onBatch === "function") {
+      options.onBatch(results.slice(i, i + BATCH_SIZE), {
+        index: i / BATCH_SIZE,
+        batchCount: Math.ceil(results.length / BATCH_SIZE),
+      });
+    }
+
     if (i + BATCH_SIZE < results.length) {
       await sleep(PAUSE_BETWEEN_BATCHES_MS);
     }

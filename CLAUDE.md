@@ -66,6 +66,30 @@ the first few (alphabetically-first-fetched) domains ever populate. The
 owner has explicitly deprioritized fixing this for now. Don't "fix" it
 as a drive-by while doing something else without being asked.
 
+## Subagent usage
+
+Owner wants proactive subagent use for big tasks — not just when he
+explicitly asks. Trigger: "anything that would genuinely benefit from
+multiple agents working on it at once." In practice:
+
+- Independent, parallelizable subtasks (no dependency between them) → spawn
+  agents in parallel rather than doing them sequentially inline.
+- Broad codebase research/exploration (multi-file "where is X",
+  cross-cutting questions) → use `Explore` or a `cavecrew` agent instead of
+  manual grep loops.
+- Single-threaded, sequential feature work (e.g. implementing one plan
+  across a few files) stays inline — that's not what this is for.
+
+This is a deliberate override of the default "don't spawn unless asked"
+posture, scoped to this repo.
+
+## Keeping this file current
+
+Owner wants this file updated proactively — not just on request — whenever
+a session surfaces a misalignment (he corrects an approach) or a new
+standing preference (he confirms/prefers something non-obvious). Fold it in
+here as its own bullet/section, don't let it live only in chat.
+
 ## Caveman mode
 
 The `caveman` Claude Code plugin may be active in a session (terse,

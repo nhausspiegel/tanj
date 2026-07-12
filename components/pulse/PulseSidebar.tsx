@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { PULSE_ACCENT } from "@/lib/pulse";
+import type { PulseRefreshProgress } from "@/components/pulse/usePulseData";
 
 export type NavItemVM = {
   key: string;
@@ -37,6 +38,8 @@ export function PulseSidebar({
   cacheLine,
   canRefresh,
   refreshing,
+  refreshProgress,
+  refreshElapsedSeconds,
   refreshWarning,
   onRefresh,
   onOpenSettings,
@@ -47,10 +50,20 @@ export function PulseSidebar({
   cacheLine: string;
   canRefresh: boolean;
   refreshing: boolean;
+  refreshProgress: PulseRefreshProgress | null;
+  refreshElapsedSeconds: number;
   refreshWarning: string | null;
   onRefresh: () => void;
   onOpenSettings: () => void;
 }) {
+  const progressPct =
+    refreshProgress && refreshProgress.total > 0
+      ? Math.min(100, Math.round((refreshProgress.processed / refreshProgress.total) * 100))
+      : null;
+  const elapsedLabel =
+    refreshElapsedSeconds >= 60
+      ? `${Math.floor(refreshElapsedSeconds / 60)}:${String(refreshElapsedSeconds % 60).padStart(2, "0")}`
+      : `${refreshElapsedSeconds}s`;
   return (
     <aside
       style={{
@@ -126,6 +139,14 @@ export function PulseSidebar({
               <>↻ Refresh now</>
             )}
           </button>
+          {refreshing ? (
+            <div className="pulse-progress-track">
+              <div
+                className={progressPct !== null ? "pulse-progress-fill" : "pulse-progress-fill pulse-progress-fill--indeterminate"}
+                style={progressPct !== null ? { width: `${progressPct}%` } : undefined}
+              />
+            </div>
+          ) : null}
           <div
             style={{
               fontSize: 10.5,
@@ -134,7 +155,13 @@ export function PulseSidebar({
             }}
             title={refreshWarning ?? undefined}
           >
-            {refreshWarning ?? cacheLine}
+            {refreshWarning
+              ? refreshWarning
+              : refreshing
+                ? refreshProgress && refreshProgress.total > 0
+                  ? `${refreshProgress.processed} of ${refreshProgress.total} articles so far · ${elapsedLabel}`
+                  : `Checking for new articles… · ${elapsedLabel}`
+                : cacheLine}
           </div>
         </div>
       ) : null}

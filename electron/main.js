@@ -525,6 +525,8 @@ ipcMain.handle("desktop:jobs:runRefreshNow", async () => {
 
 ipcMain.handle("desktop:jobs:getLastRefresh", () => getLastRefresh(desktopDb));
 
+ipcMain.handle("desktop:jobs:isRunning", () => Boolean(refreshService?.isRunning()));
+
 ipcMain.handle("desktop:notifications:requestStatus", () => {
   return notificationService.requestStatus();
 });
@@ -679,6 +681,7 @@ app.whenReady().then(async () => {
     getPowerState,
     shouldSuspendRefresh: shouldSuspendScheduledRefresh,
     onComplete: (result) => notifyRenderer("desktop:refreshComplete", result),
+    onProgress: (payload) => notifyRenderer("desktop:refreshProgress", payload),
   });
   scheduler = createScheduler({
     refreshService,

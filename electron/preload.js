@@ -25,10 +25,16 @@ contextBridge.exposeInMainWorld("desktop", {
   jobs: {
     runRefreshNow: () => ipcRenderer.invoke("desktop:jobs:runRefreshNow"),
     getLastRefresh: () => ipcRenderer.invoke("desktop:jobs:getLastRefresh"),
+    isRunning: () => ipcRenderer.invoke("desktop:jobs:isRunning"),
     onRefreshComplete: (callback) => {
       const listener = (_event, payload) => callback(payload);
       ipcRenderer.on("desktop:refreshComplete", listener);
       return () => ipcRenderer.removeListener("desktop:refreshComplete", listener);
+    },
+    onRefreshProgress: (callback) => {
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on("desktop:refreshProgress", listener);
+      return () => ipcRenderer.removeListener("desktop:refreshProgress", listener);
     },
   },
   notifications: {

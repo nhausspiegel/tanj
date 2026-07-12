@@ -45,8 +45,18 @@ function openExternal(url?: string) {
 }
 
 export function PulseClient() {
-  const { stories, rankedStories, brief, cache, refreshing, refreshWarning, canRefresh, triggerRefresh } =
-    usePulseData();
+  const {
+    stories,
+    rankedStories,
+    brief,
+    cache,
+    refreshing,
+    refreshProgress,
+    refreshElapsedSeconds,
+    refreshWarning,
+    canRefresh,
+    triggerRefresh,
+  } = usePulseData();
   const { followed, votes, saved, setFollowed, setVote, toggleSaved } = usePulseState();
 
   const [page, setPage] = useState<Page>("foryou");
@@ -334,6 +344,8 @@ export function PulseClient() {
         cacheLine={cacheLine}
         canRefresh={canRefresh}
         refreshing={refreshing}
+        refreshProgress={refreshProgress}
+        refreshElapsedSeconds={refreshElapsedSeconds}
         refreshWarning={refreshWarning}
         onRefresh={triggerRefresh}
         onOpenSettings={() => setSettingsOpen(true)}
