@@ -23,7 +23,7 @@ function scoreBar(label: string, value: number, max: number) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   return (
     <div key={label} style={{ display: "flex", alignItems: "center", gap: 7 }}>
-      <span style={{ width: 74, fontSize: 10, fontWeight: 700, color: "#9a98a3", flexShrink: 0 }}>
+      <span style={{ width: 68, fontSize: 10, fontWeight: 700, color: "#9a98a3", flexShrink: 0 }}>
         {label}
       </span>
       <span
@@ -44,6 +44,18 @@ function scoreBar(label: string, value: number, max: number) {
             background: "#4AD07A",
           }}
         />
+      </span>
+      <span
+        style={{
+          width: 40,
+          fontSize: 10,
+          fontWeight: 700,
+          color: "#F7F3E6",
+          textAlign: "right",
+          flexShrink: 0,
+        }}
+      >
+        {value.toFixed(1)}/{max}
       </span>
     </div>
   );
@@ -99,7 +111,7 @@ function ScoreBadge({ scoreValue, breakdown }: { scoreValue: number; breakdown?:
             position: "absolute",
             top: "calc(100% + 8px)",
             left: 0,
-            width: 200,
+            width: 220,
             background: "#1E273A",
             border: "1px solid rgba(255,255,255,0.14)",
             borderRadius: 8,
@@ -266,35 +278,19 @@ export function StoryCard({
             NEW
           </span>
         ) : null}
-        {saved ? (
-          <span
-            style={{
-              position: "absolute",
-              right: 10,
-              top: isNew ? 34 : 10,
-              fontSize: 10,
-              fontWeight: 800,
-              letterSpacing: "0.1em",
-              color: "rgba(255,255,255,0.75)",
-              background: "rgba(19,26,37,0.55)",
-              padding: "4px 8px",
-              borderRadius: 4,
-              backdropFilter: "blur(4px)",
-            }}
-          >
-            LIKED
-          </span>
-        ) : null}
         <div
           style={{
+            // Top-anchored with a fixed padding-top: guarantees "AI TL;DR"
+            // always sits a fixed distance below the badge (~10px + ~34px
+            // tall), regardless of how many lines the summary clamps to —
+            // unlike a bottom-anchored panel, whose top edge (and thus the
+            // label's position) shifts with content length.
             position: "absolute",
             inset: 0,
             background: "rgba(19,26,37,0.86)",
             opacity: hovered ? 1 : 0,
             transition: "opacity 0.25s ease",
-            // Extra top padding clears the score badge's footprint (top-left,
-            // ~10px + ~40px tall) so this text never renders underneath it.
-            padding: "56px 14px 14px",
+            padding: "64px 14px 8px",
             display: "flex",
             flexDirection: "column",
             gap: 6,
@@ -319,7 +315,7 @@ export function StoryCard({
               lineHeight: 1.5,
               color: "#d6d4dd",
               display: "-webkit-box",
-              WebkitLineClamp: 5,
+              WebkitLineClamp: 3,
               WebkitBoxOrient: "vertical",
               overflow: "hidden",
             }}

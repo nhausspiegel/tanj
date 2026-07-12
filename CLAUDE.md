@@ -99,6 +99,16 @@ multiple agents working on it at once." In practice:
 This is a deliberate override of the default "don't spawn unless asked"
 posture, scoped to this repo.
 
+## Git commits
+
+Ask before running `git commit` — even for a small, well-scoped change that
+already typechecks and passes tests. Finish the work, verify it, describe
+what's ready, then wait for a go-ahead. Don't treat "commit per discrete
+feature" as license to commit automatically the moment a change is done;
+that's guidance on how to batch changes into a commit, not permission to
+skip asking. Pushing already required explicit confirmation — commits now
+do too.
+
 ## Keeping this file current
 
 Owner wants this file updated proactively — not just on request — whenever
