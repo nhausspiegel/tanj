@@ -11,8 +11,8 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: #08080c;
-  color: #e8e6e1;
+  background: #131A25;
+  color: #F7F3E6;
   font-family: var(--font-archivo), "Archivo", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
@@ -22,15 +22,15 @@ body {
 }
 
 a {
-  color: #e8e6e1;
+  color: #F7F3E6;
   text-decoration: none;
 }
 a:hover {
-  color: #ffffff;
+  color: #F7F3E6;
 }
 
 ::selection {
-  background: rgba(63, 213, 232, 0.24);
+  background: rgba(222, 244, 120, 0.24);
 }
 
 /* ── PULSE hover states (inline styles handle the base look) ───────── */
@@ -61,22 +61,22 @@ a:hover {
   width: 13px;
   height: 13px;
   border: 2px solid rgba(255, 255, 255, 0.22);
-  border-top-color: #3fd5e8;
+  border-top-color: #DEF478;
   border-radius: 50%;
   animation: pulseSpin 0.7s linear infinite;
   flex-shrink: 0;
 }
 
 .pulse-nav:hover {
-  color: #ffffff !important;
+  color: #F7F3E6 !important;
 }
 .pulse-topic:hover {
   background: rgba(255, 255, 255, 0.05) !important;
-  color: #ffffff !important;
+  color: #F7F3E6 !important;
 }
 .pulse-topic-toggle:hover {
   background: rgba(255, 255, 255, 0.14) !important;
-  color: #ffffff !important;
+  color: #F7F3E6 !important;
 }
 .pulse-card {
   transition: transform 0.25s ease, border-color 0.25s ease;
@@ -87,7 +87,7 @@ a:hover {
 }
 .pulse-chev:hover {
   background: rgba(255, 255, 255, 0.12) !important;
-  color: #ffffff !important;
+  color: #F7F3E6 !important;
 }
 .pulse-accent-btn:hover {
   filter: brightness(1.12);
@@ -106,13 +106,13 @@ a:hover {
   filter: brightness(1.08);
 }
 .pulse-close:hover {
-  background: rgba(8, 8, 12, 0.85) !important;
+  background: rgba(19, 26, 37, 0.85) !important;
 }
 .pulse-dashed:hover {
   border-color: rgba(255, 255, 255, 0.35) !important;
-  color: #ffffff !important;
+  color: #F7F3E6 !important;
 }
 .pulse-soft:hover {
   background: rgba(255, 255, 255, 0.05) !important;
-  color: #ffffff !important;
+  color: #F7F3E6 !important;
 }

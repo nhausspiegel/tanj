@@ -33,7 +33,7 @@ export function PulseHero({
             background:
               `radial-gradient(110% 150% at 78% 8%, hsla(${domainHue(h.domain)},65%,42%,0.5), transparent 58%), ` +
               `radial-gradient(90% 120% at 15% 100%, hsla(${HERO_HUE},70%,30%,0.35), transparent 55%), ` +
-              `linear-gradient(160deg, #171720 15%, #08080c 75%)`,
+              `linear-gradient(160deg, #171720 15%, #131A25 75%)`,
             opacity: i === index ? 1 : 0,
             transition: "opacity 1.1s ease",
           }}
@@ -45,7 +45,7 @@ export function PulseHero({
           position: "absolute",
           inset: 0,
           background:
-            "linear-gradient(180deg, rgba(8,8,12,0) 40%, rgba(8,8,12,0.92) 92%), linear-gradient(90deg, rgba(8,8,12,0.55) 0%, rgba(8,8,12,0) 55%)",
+            "linear-gradient(180deg, rgba(19,26,37,0) 40%, rgba(19,26,37,0.92) 92%), linear-gradient(90deg, rgba(19,26,37,0.55) 0%, rgba(19,26,37,0) 55%)",
         }}
       />
 
@@ -67,7 +67,7 @@ export function PulseHero({
               fontWeight: 800,
               letterSpacing: "0.14em",
               textTransform: "uppercase",
-              color: "#08080c",
+              color: "#131A25",
               background: PULSE_ACCENT,
               padding: "5px 10px",
               borderRadius: 4,
@@ -86,7 +86,7 @@ export function PulseHero({
             lineHeight: 1.04,
             fontWeight: 900,
             letterSpacing: "-0.025em",
-            color: "#ffffff",
+            color: "#F7F3E6",
             textWrap: "balance",
           }}
         >
@@ -110,7 +110,7 @@ export function PulseHero({
             onClick={onOpen}
             style={{
               background: PULSE_ACCENT,
-              color: "#08080c",
+              color: "#131A25",
               border: "none",
               fontFamily: "inherit",
               fontSize: 14,
@@ -128,7 +128,7 @@ export function PulseHero({
             onClick={onSave}
             style={{
               background: "rgba(255,255,255,0.09)",
-              color: "#ffffff",
+              color: "#F7F3E6",
               border: "1px solid rgba(255,255,255,0.18)",
               fontFamily: "inherit",
               fontSize: 14,

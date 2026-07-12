@@ -1,5 +1,7 @@
 "use client";
 
+import { PULSE_ACCENT } from "@/lib/pulse";
+
 export type TrendItem = {
   key: string;
   rank: number;
@@ -31,16 +33,16 @@ const TIERS: Tier[] = [
     lead: 21,
     score: 33,
     paddingY: 26,
-    background: (hue) => `linear-gradient(100deg, hsla(${hue},50%,32%,0.12), #111118 46%)`,
+    background: (hue) => `linear-gradient(100deg, hsla(${hue},50%,32%,0.12), #171F2C 46%)`,
     border: (hue) => `1px solid hsla(${hue},55%,52%,0.24)`,
-    rankColor: "#ffffff",
+    rankColor: "#F7F3E6",
   },
   {
     rank: 43,
     lead: 18.5,
     score: 29,
     paddingY: 22,
-    background: () => "#101017",
+    background: () => "#161D2A",
     border: () => "1px solid rgba(255,255,255,0.08)",
     rankColor: "#d6d4dd",
   },
@@ -49,7 +51,7 @@ const TIERS: Tier[] = [
     lead: 16.5,
     score: 26,
     paddingY: 19,
-    background: () => "#0e0e14",
+    background: () => "#141B26",
     border: () => "1px solid rgba(255,255,255,0.06)",
     rankColor: "#8a8894",
   },
@@ -145,7 +147,7 @@ export function TrendsGrid({ items }: { items: TrendItem[] }) {
                   {tr.topicLabel}
                 </span>
                 {tr.sourceCount > 1 ? (
-                  <span style={{ fontSize: 11.5, fontWeight: 800, color: "#3FD5E8" }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 800, color: PULSE_ACCENT }}>
                     {tr.sourceCount} sources
                   </span>
                 ) : null}
@@ -160,7 +162,7 @@ export function TrendsGrid({ items }: { items: TrendItem[] }) {
                   fontSize: tier.lead,
                   fontWeight: 600,
                   lineHeight: 1.35,
-                  color: "#f2f0f5",
+                  color: "#F7F3E6",
                   textWrap: "pretty",
                   display: "-webkit-box",
                   WebkitLineClamp: tr.rank <= 2 ? 3 : 2,

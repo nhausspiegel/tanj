@@ -65,7 +65,7 @@ export function StoryRow({
               fontSize: 17,
               fontWeight: 800,
               letterSpacing: "-0.01em",
-              color: "#ffffff",
+              color: "#F7F3E6",
             }}
           >
             {row.label}
@@ -113,7 +113,7 @@ export function StoryRow({
                 borderRadius: 15,
                 border: "none",
                 background: PULSE_ACCENT,
-                color: "#08080c",
+                color: "#131A25",
                 cursor: "pointer",
                 fontSize: 11,
                 fontWeight: 800,

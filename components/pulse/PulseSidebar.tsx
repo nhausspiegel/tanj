@@ -62,7 +62,7 @@ export function PulseSidebar({
       }}
     >
       <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
-        <span style={{ fontSize: 21, fontWeight: 900, letterSpacing: "-0.03em", color: "#ffffff" }}>
+        <span style={{ fontSize: 21, fontWeight: 900, letterSpacing: "-0.03em", color: "#F7F3E6" }}>
           PULSE
         </span>
         <span style={{ fontSize: 21, fontWeight: 900, letterSpacing: "-0.03em", color: PULSE_ACCENT }}>
@@ -106,7 +106,7 @@ export function PulseSidebar({
               width: "100%",
               background: refreshing ? "transparent" : PULSE_ACCENT,
               border: refreshing ? "1px solid rgba(255,255,255,0.14)" : "none",
-              color: refreshing ? "#a5a3ae" : "#08080c",
+              color: refreshing ? "#a5a3ae" : "#131A25",
               fontFamily: "inherit",
               fontSize: 12.5,
               fontWeight: 800,
@@ -149,7 +149,7 @@ export function PulseSidebar({
               justifyContent: "space-between",
               background: n.active ? "rgba(255,255,255,0.06)" : "transparent",
               border: "none",
-              color: n.active ? "#ffffff" : "#a5a3ae",
+              color: n.active ? "#F7F3E6" : "#a5a3ae",
               fontFamily: "inherit",
               fontSize: 13.5,
               fontWeight: 600,

@@ -3,7 +3,7 @@
 import { PULSE_ACCENT } from "@/lib/pulse";
 
 const card = {
-  background: "#111118",
+  background: "#171F2C",
   border: "1px solid rgba(255,255,255,0.09)",
   borderRadius: 12,
   padding: "24px 26px",

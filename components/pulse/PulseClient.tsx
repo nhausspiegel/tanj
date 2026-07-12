@@ -320,8 +320,8 @@ export function PulseClient() {
       style={{
         display: "flex",
         height: "100vh",
-        background: "#08080c",
-        color: "#e8e6e1",
+        background: "#131A25",
+        color: "#F7F3E6",
         overflow: "hidden",
       }}
     >
@@ -368,7 +368,7 @@ export function PulseClient() {
                   fontSize: 21,
                   fontWeight: 900,
                   letterSpacing: "-0.02em",
-                  color: "#ffffff",
+                  color: "#F7F3E6",
                 }}
               >
                 {PAGE_TITLE[page]}

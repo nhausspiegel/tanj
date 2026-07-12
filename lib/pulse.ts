@@ -8,8 +8,14 @@ import {
 import { clusterArticles } from "@/lib/clustering";
 import { outletTrust, sourceComposite } from "@/lib/outlets";
 
-// ── PULSE accent (Electric — the chosen default theme) ──────────────
-export const PULSE_ACCENT = "#3FD5E8";
+// ── TANJ palette ──────────────────────────────────────────────────
+export const PULSE_ACCENT = "#DEF478";
+
+// Not wired into the UI yet — held here for future secondary accents /
+// domain hues (e.g. periwinkle for a secondary button, sky for a hover
+// state). Add usages deliberately rather than blanket-replacing grays.
+export const PULSE_ACCENT_SECONDARY = "#788CE3"; // periwinkle
+export const PULSE_ACCENT_TERTIARY = "#83CDFF"; // sky blue
 
 // One row per contributing article inside a merged story. reputability/reach
 // are 1-5 editorial-trust scores from lib/outlets.ts; composite is the

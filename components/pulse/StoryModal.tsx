@@ -60,7 +60,7 @@ function SourceRow({ source, hue }: { source: PulseSourceRef; hue: number }) {
           height: 28,
           borderRadius: "50%",
           background: `hsla(${hue},55%,42%,0.4)`,
-          color: "#ffffff",
+          color: "#F7F3E6",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -73,7 +73,7 @@ function SourceRow({ source, hue }: { source: PulseSourceRef; hue: number }) {
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 3 }}>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: "#e8e6e1" }}>{source.name}</span>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: "#F7F3E6" }}>{source.name}</span>
           <span style={{ fontSize: 10.5, color: "#66646f", flexShrink: 0 }}>
             {hoursAgoLabel(source.hoursAgo)}
           </span>
@@ -126,7 +126,7 @@ export function StoryModal({
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(4,4,8,0.78)",
+        background: "rgba(10,13,19,0.78)",
         backdropFilter: "blur(6px)",
         zIndex: 50,
         display: "flex",
@@ -141,7 +141,7 @@ export function StoryModal({
           width: "100%",
           maxWidth: 620,
           maxHeight: "82vh",
-          background: "#13131b",
+          background: "#1E273A",
           border: "1px solid rgba(255,255,255,0.12)",
           borderRadius: 14,
           overflowY: "auto",
@@ -162,8 +162,8 @@ export function StoryModal({
               height: 32,
               borderRadius: "50%",
               border: "none",
-              background: "rgba(8,8,12,0.6)",
-              color: "#ffffff",
+              background: "rgba(19,26,37,0.6)",
+              color: "#F7F3E6",
               fontSize: 16,
               cursor: "pointer",
               display: "flex",
@@ -183,7 +183,7 @@ export function StoryModal({
               fontWeight: 800,
               letterSpacing: "0.14em",
               textTransform: "uppercase",
-              color: "#08080c",
+              color: "#131A25",
               background: PULSE_ACCENT,
               padding: "5px 10px",
               borderRadius: 4,
@@ -200,7 +200,7 @@ export function StoryModal({
               fontWeight: 850,
               lineHeight: 1.15,
               letterSpacing: "-0.02em",
-              color: "#ffffff",
+              color: "#F7F3E6",
               textWrap: "balance",
             }}
           >
@@ -272,7 +272,7 @@ export function StoryModal({
               disabled={!story.url}
               style={{
                 background: PULSE_ACCENT,
-                color: "#08080c",
+                color: "#131A25",
                 border: "none",
                 fontFamily: "inherit",
                 fontSize: 13.5,
@@ -290,7 +290,7 @@ export function StoryModal({
               onClick={onToggleSave}
               style={{
                 background: "rgba(255,255,255,0.08)",
-                color: "#ffffff",
+                color: "#F7F3E6",
                 border: "1px solid rgba(255,255,255,0.16)",
                 fontFamily: "inherit",
                 fontSize: 13.5,
