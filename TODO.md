@@ -5,17 +5,21 @@ Working list of open items from ongoing PULSE work. Delete items once shipped
 
 ## Open
 
-- **Trends page doesn't show real trends** — right now "Trends" nav =
-  `clusterArticlesToStories` (same story merged across outlets), not a
-  big-picture theme/velocity trend. A real trend engine already exists and
-  runs every refresh (`electron/repositories/patternsRepo.js` — week-over-week
-  tag frequency deltas across the whole corpus) but its only consumer today
-  is the sidebar Brief blurb; it's never rendered as its own page. Owner's
-  direction: keep the current Trends UI, wire the pattern-engine backend
-  into it instead of clustering. Bigger than a straight data swap — the
-  pattern engine outputs tag/theme aggregates (no single backing article),
-  but `TrendsGrid`'s click-through currently assumes one story per card
-  opening in `StoryModal`; that interaction needs rethinking too.
+- **Trends page redesign shipped (2026-07-12)** — replaced the old ranked-list
+  `TrendsGrid` with a chart + timeline design (`components/pulse/TrendsView.tsx`,
+  data derivation in `lib/trends.ts`). The chart lines = per-domain daily
+  article counts over 7 days (top 5 domains by activity, each in its own
+  `domainHue` color); event nodes + the timeline = top clusters by base score.
+  It's self-contained: clicking a node/card expands in place, it no longer
+  opens `StoryModal`. This supersedes the earlier "keep the UI, wire the
+  pattern-engine into it" plan. Follow-ups if desired:
+  - Real cluster data fills multi-source counts; in web/seed mode every event
+    shows "1 articles / 1 sources" because `SEED_STORIES` aren't truly clustered.
+  - The per-source "reporting timeline" note currently reuses the cluster
+    summary — real per-article notes would read better.
+  - The 7-day activity lines could later be fed by the pattern engine's
+    week-over-week tag deltas (`electron/repositories/patternsRepo.js`) instead
+    of raw article counts, if a theme/velocity view is wanted.
 - **"score" is confusing, no redesign decided yet** — diagnosed 2026-07-12:
   `score` = `baseScore` (from `personalized_score`, itself importance + an
   invisible hardcoded tag/domain preference boost nobody can configure) run

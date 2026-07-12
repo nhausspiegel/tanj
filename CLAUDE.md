@@ -47,6 +47,22 @@ never touches `better-sqlite3`/`electron-rebuild`.
   story/cluster** across sources (`clusterArticlesToStories`, built on
   `lib/clustering.ts`). This split was an explicit correction — don't
   collapse them back into one shared story list.
+- **Trends is a chart + timeline (redesigned 2026-07-12).**
+  `components/pulse/TrendsView.tsx` renders a 7-day per-domain activity chart
+  (dashed line per domain, glowing event nodes) over a click-to-expand event
+  timeline. Data derivation lives in `lib/trends.ts` (`buildTrends`): chart
+  lines = daily article counts per domain (top 5 by activity, own `domainHue`
+  color, normalized to a ~78 peak); events = top clusters by base score. It's
+  self-contained — nodes/cards expand in place, it does NOT open `StoryModal`.
+  This replaced the old `TrendsGrid` ranked list and supersedes the earlier
+  "wire the pattern-engine into the existing Trends UI" plan. Seed/web mode
+  shows a real chart because `SEED_STORIES` now carry parsed timestamps, but
+  events read "1 article/1 source" there (seed stories aren't truly clustered).
+  Those seed timestamps use a **fixed** `SEED_REFERENCE` constant, not
+  `Date.now()` — a wall-clock there differs between SSR and hydration and
+  mismatches the card date tooltips. `buildTrends` likewise anchors its window
+  to the newest story (not `Date.now()`) when no `now` is passed, so it stays
+  deterministic across SSR/hydration. Keep both time-free.
 - Outlet trust metadata (reputability/reach, used for the story-detail
   modal's source meters and for ordering multi-source stories) lives in
   `lib/outlets.ts`. Add new outlets there as needed; unknown outlets fall

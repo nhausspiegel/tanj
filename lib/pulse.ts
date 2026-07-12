@@ -59,6 +59,8 @@ export type PulseStory = {
   importance: number; // 1–5
   sources: PulseSourceRef[]; // every contributing article, sorted most-recent-first
   baseScore: number; // 1–10 personalized base, before live vote/save adjustments
+  impactScore?: number; // 1–10 cluster impact (source count + recency + importance + alignment + novelty)
+  tags?: string[]; // topical tags/entities — used by Trends for the event chips
 };
 
 // Domain hue (HSL hue used for dots / badges / thumb gradients). The six
@@ -267,6 +269,8 @@ function clusterToStory(
     importance: lead?.importance ?? 3,
     sources,
     baseScore: clusterBaseScore(members.length ? members : lead ? [lead] : []),
+    impactScore: cluster.impactScore,
+    tags: cluster.tags,
   };
 }
 
@@ -301,6 +305,7 @@ export function articlesToStories(articles: Article[], now: number = Date.now())
       importance: article.importance,
       sources: [sourceRef],
       baseScore: articleBaseScore(article),
+      tags: article.tags,
     };
   });
 }
@@ -399,24 +404,45 @@ const SEED_INPUT: SeedInput[] = [
   { id: "catwalk", domain: "Consumer", source: "The Robot Report", timeAgo: "1mo ago", title: "Unitree humanoids share the catwalk at a physical-AI fashion show", tldr: "Robots walked alongside models at Galaxy Corporation’s Mach33 show — industrial design meeting fluid machine movement." },
 ];
 
+// Turn a seed "1d ago" / "18h ago" / "2w ago" label into an approximate hour
+// offset, so seed stories carry real-ish timestamps (Trends buckets them by
+// day and the source list shows sensible dates instead of everything "now").
+function seedHoursAgo(timeAgo: string): number {
+  const match = /^(\d+)\s*(h|d|w|mo|y)/.exec(timeAgo.trim());
+  if (!match) return 0;
+  const n = Number(match[1]);
+  const unit = match[2];
+  const perUnit: Record<string, number> = { h: 1, d: 24, w: 168, mo: 720, y: 8760 };
+  return n * (perUnit[unit] ?? 1);
+}
+
+// Fixed reference (not Date.now()) so seed timestamps are byte-identical on the
+// server and the client — a wall-clock here would differ between SSR and
+// hydration and mismatch the date tooltips. Trends anchors its 7-day window to
+// the newest story, so this constant only drives the demo tooltips, not whether
+// the chart populates.
+const SEED_REFERENCE = Date.parse("2026-07-12T12:00:00Z");
+
 export const SEED_STORIES: PulseStory[] = SEED_INPUT.map((s) => {
   const h = hashId(s.id);
+  const hoursAgo = seedHoursAgo(s.timeAgo);
+  const publishedAt = new Date(SEED_REFERENCE - hoursAgo * 3600_000).toISOString();
+  const { reputability, reach } = outletTrust(s.source);
   return {
     ...s,
+    publishedAt,
     importance: 3 + (h % 3),
     baseScore: clamp(4 + (h % 40) / 10, 1, 10),
     sources: [
-      (() => {
-        const { reputability, reach } = outletTrust(s.source);
-        return {
-          name: s.source,
-          hoursAgo: 0,
-          summary: s.tldr,
-          reputability,
-          reach,
-          composite: sourceComposite(0, reputability, reach),
-        };
-      })(),
+      {
+        name: s.source,
+        url: undefined,
+        hoursAgo,
+        summary: s.tldr,
+        reputability,
+        reach,
+        composite: sourceComposite(hoursAgo, reputability, reach),
+      },
     ],
   };
 });

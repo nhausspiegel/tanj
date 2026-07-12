@@ -146,3 +146,70 @@ a:hover {
   background: rgba(255, 255, 255, 0.05) !important;
   color: #F7F3E6 !important;
 }
+
+/* ── Trends page (chart + timeline) ────────────────────────────────── */
+.pulse-trend-card:hover,
+.pulse-trend-card:focus-visible {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.5);
+}
+.trends-node:focus-visible {
+  outline: none;
+}
+.trends-node:focus-visible circle:nth-child(2) {
+  stroke-width: 3.4;
+}
+@keyframes trendsReveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+@keyframes trendsNodeIn {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes trendsCardIn {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes trendsPulseGlow {
+  0%, 100% { opacity: 0.22; }
+  50% { opacity: 0.4; }
+}
+@keyframes trendsDrift {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+/* Elements default to their final/visible state; `backwards` fill shows the
+   keyframe's `from` during the delay. So disabling animation (reduced motion)
+   leaves everything in its resting, visible position. */
+.trends-reveal {
+  animation: trendsReveal 1.6s cubic-bezier(0.4, 0, 0.2, 1) 0.15s backwards;
+}
+.trends-line {
+  animation: trendsDrift 5s ease-in-out infinite;
+}
+.trends-node {
+  opacity: 1;
+  animation: trendsNodeIn 0.5s ease backwards;
+}
+.trends-node-glow {
+  opacity: 0.3;
+  animation: trendsPulseGlow 3s ease-in-out infinite;
+}
+.trends-card-row {
+  opacity: 1;
+  animation: trendsCardIn 0.55s ease backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trends-reveal,
+  .trends-line,
+  .trends-node,
+  .trends-node-glow,
+  .trends-card-row {
+    animation: none !important;
+  }
+  .trends-reveal { clip-path: none !important; }
+}

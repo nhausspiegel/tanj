@@ -18,7 +18,8 @@ import { usePulseState } from "@/components/pulse/usePulseState";
 import { PulseSidebar, type NavItemVM, type TopicVM } from "@/components/pulse/PulseSidebar";
 import { PulseHero } from "@/components/pulse/PulseHero";
 import { StoryRow, type RowItem, type RowViewModel } from "@/components/pulse/StoryRow";
-import { TrendsGrid, type TrendItem } from "@/components/pulse/TrendsGrid";
+import { TrendsView } from "@/components/pulse/TrendsView";
+import { buildTrends } from "@/lib/trends";
 import { WeeklyBrief } from "@/components/pulse/WeeklyBrief";
 import { StoryModal } from "@/components/pulse/StoryModal";
 import { SettingsModal } from "@/components/pulse/SettingsModal";
@@ -249,32 +250,8 @@ export function PulseClient() {
     setFollowed,
   ]);
 
-  const trendItems: TrendItem[] = useMemo(
-    () =>
-      rankedStories
-        .slice()
-        .sort((a, b) => rankedScore(b) - rankedScore(a))
-        .slice(0, 12)
-        .map((story, i) => ({
-          key: story.id,
-          rank: i + 1,
-          title: story.title,
-          lead: story.tldr,
-          source: story.source,
-          timeAgo: story.timeAgo,
-          publishedAt: story.publishedAt,
-          scoreText: scoreLabel(rankedScore(story)),
-          scoreValue: rankedScore(story),
-          sourceCount: story.sources.length,
-          domainHue: domainHue(story.domain),
-          topicLabel: domainLabel(story.domain),
-          isNew: Boolean(
-            story.processedAt && newSinceRefreshAt && story.processedAt > newSinceRefreshAt,
-          ),
-          onOpen: () => setSelected(story.id),
-        })),
-    [rankedStories, rankedScore, newSinceRefreshAt],
-  );
+  // Trends: chart activity from per-article stories, events from clusters.
+  const trendsModel = useMemo(() => buildTrends(stories, rankedStories), [stories, rankedStories]);
 
   // ── Sidebar view-models ───────────────────────────────────────────
   const navItems: NavItemVM[] = useMemo(() => {
@@ -381,68 +358,73 @@ export function PulseClient() {
           scrollBehavior: "smooth",
         }}
       >
-        {page === "foryou" && heroes.length > 0 ? (
-          <PulseHero
-            heroes={heroes}
-            index={safeHeroIndex}
-            saved={Boolean(heroes[safeHeroIndex] && saved[heroes[safeHeroIndex].id])}
-            onOpen={() => setSelected(heroes[safeHeroIndex]?.id ?? null)}
-            onSave={() => heroes[safeHeroIndex] && toggleSaved(heroes[safeHeroIndex].id)}
-            onSelectIndex={setHeroIndex}
-          />
-        ) : null}
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 34, padding: "28px 0 60px" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "0 44px" }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: 21,
-                  fontWeight: 900,
-                  letterSpacing: "-0.02em",
-                  color: "#F7F3E6",
-                }}
-              >
-                {PAGE_TITLE[page]}
-              </h2>
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#8a8894" }}>{PAGE_SUB[page]}</span>
-            </div>
-            {showAddHint ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#8a8894" }}>
-                  Following {followedCount} of {totalDomains} domains
-                </span>
-                <button
-                  className="pulse-dashed"
-                  onClick={() => goToPage("all")}
-                  style={{
-                    border: "1px dashed rgba(255,255,255,0.2)",
-                    background: "transparent",
-                    color: "#a5a3ae",
-                    fontFamily: "inherit",
-                    fontSize: 11.5,
-                    fontWeight: 700,
-                    padding: "6px 14px",
-                    borderRadius: 14,
-                    cursor: "pointer",
-                  }}
-                >
-                  + Add domains in All Domains
-                </button>
-              </div>
+        {page === "trends" ? (
+          <TrendsView model={trendsModel} />
+        ) : (
+          <>
+            {page === "foryou" && heroes.length > 0 ? (
+              <PulseHero
+                heroes={heroes}
+                index={safeHeroIndex}
+                saved={Boolean(heroes[safeHeroIndex] && saved[heroes[safeHeroIndex].id])}
+                onOpen={() => setSelected(heroes[safeHeroIndex]?.id ?? null)}
+                onSave={() => heroes[safeHeroIndex] && toggleSaved(heroes[safeHeroIndex].id)}
+                onSelectIndex={setHeroIndex}
+              />
             ) : null}
-          </div>
 
-          {rows.map((row) => (
-            <StoryRow key={row.key} row={row} registerSection={registerSection} />
-          ))}
+            <div style={{ display: "flex", flexDirection: "column", gap: 34, padding: "28px 0 60px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "0 44px" }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: 21,
+                      fontWeight: 900,
+                      letterSpacing: "-0.02em",
+                      color: "#F7F3E6",
+                    }}
+                  >
+                    {PAGE_TITLE[page]}
+                  </h2>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#8a8894" }}>{PAGE_SUB[page]}</span>
+                </div>
+                {showAddHint ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#8a8894" }}>
+                      Following {followedCount} of {totalDomains} domains
+                    </span>
+                    <button
+                      className="pulse-dashed"
+                      onClick={() => goToPage("all")}
+                      style={{
+                        border: "1px dashed rgba(255,255,255,0.2)",
+                        background: "transparent",
+                        color: "#a5a3ae",
+                        fontFamily: "inherit",
+                        fontSize: 11.5,
+                        fontWeight: 700,
+                        padding: "6px 14px",
+                        borderRadius: 14,
+                        cursor: "pointer",
+                      }}
+                    >
+                      + Add domains in All Domains
+                    </button>
+                  </div>
+                ) : null}
+              </div>
 
-          {page === "trends" ? <TrendsGrid items={trendItems} /> : null}
-          {page === "brief" ? (
-            <WeeklyBrief signalParagraph={brief.signalParagraph} insights={brief.insights} />
-          ) : null}
-        </div>
+              {rows.map((row) => (
+                <StoryRow key={row.key} row={row} registerSection={registerSection} />
+              ))}
+
+              {page === "brief" ? (
+                <WeeklyBrief signalParagraph={brief.signalParagraph} insights={brief.insights} />
+              ) : null}
+            </div>
+          </>
+        )}
       </main>
 
       {selectedStory ? (
