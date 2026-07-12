@@ -18,6 +18,112 @@ function hoursAgoLabel(hoursAgo: number): string {
   return `${Math.round(hoursAgo / 24)}d ago`;
 }
 
+function faviconUrl(sourceUrl?: string): string | null {
+  if (!sourceUrl) return null;
+  try {
+    const hostname = new URL(sourceUrl).hostname;
+    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`;
+  } catch {
+    return null;
+  }
+}
+
+function trustBar(label: string, value: number, valueLabel: string, hue: number) {
+  return (
+    <div key={label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <span style={{ width: 68, fontSize: 10.5, fontWeight: 700, color: "#8a8894", flexShrink: 0 }}>
+        {label}
+      </span>
+      <span
+        style={{
+          flex: 1,
+          height: 5,
+          borderRadius: 3,
+          background: "rgba(255,255,255,0.1)",
+          overflow: "hidden",
+        }}
+      >
+        <span
+          style={{
+            display: "block",
+            height: "100%",
+            width: `${Math.max(0, Math.min(100, (value / 5) * 100))}%`,
+            borderRadius: 3,
+            background: `hsl(${hue}, 65%, 60%)`,
+          }}
+        />
+      </span>
+      <span style={{ width: 46, fontSize: 10.5, fontWeight: 700, color: "#F7F3E6", textAlign: "right", flexShrink: 0 }}>
+        {valueLabel}
+      </span>
+    </div>
+  );
+}
+
+// Custom hover popover — never a native `title` tooltip. Shows the
+// reputability/reach bars visually instead of stating them as words.
+function SourceTrustBadge({
+  source,
+  hue,
+  children,
+}: {
+  source: PulseSourceRef;
+  hue: number;
+  children: React.ReactNode;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <span
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 5 }}
+    >
+      {children}
+      {hovered ? (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            left: 0,
+            width: 200,
+            background: "#1E273A",
+            border: "1px solid rgba(255,255,255,0.14)",
+            borderRadius: 8,
+            padding: "10px 12px",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+            zIndex: 10,
+            pointerEvents: "none",
+            display: "flex",
+            flexDirection: "column",
+            gap: 7,
+          }}
+        >
+          {trustBar("Reputability", source.reputability, trustLabel(source.reputability), hue)}
+          {trustBar("Reach", source.reach, trustLabel(source.reach), hue)}
+        </div>
+      ) : null}
+    </span>
+  );
+}
+
+// Small inline logo for the header byline (favicon service, hostname
+// derived from the source URL). Renders nothing on failure — an absent
+// icon in an inline text row is unobtrusive, unlike a blank avatar box.
+function SourceLogo({ url, size = 15 }: { url?: string; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  const src = !failed ? faviconUrl(url) : null;
+  if (!src) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      onError={() => setFailed(true)}
+      style={{ width: size, height: size, borderRadius: 4, flexShrink: 0, background: "#fff" }}
+    />
+  );
+}
+
 function meterBar(value: number, key: string) {
   const height = Math.max(2, (value / 5) * 16);
   return (
@@ -143,6 +249,7 @@ export function StoryModal({
   scoreText,
   thumb,
   saved,
+  isRanked,
   onClose,
   onToggleSave,
   onReadOriginal,
@@ -151,10 +258,12 @@ export function StoryModal({
   scoreText: string;
   thumb: string;
   saved: boolean;
+  isRanked: boolean;
   onClose: () => void;
   onToggleSave: () => void;
   onReadOriginal: () => void;
 }) {
+  const leadSource = story.sources[0];
   return (
     <div
       onClick={onClose}
@@ -254,7 +363,16 @@ export function StoryModal({
           >
             <span style={{ color: "#4AD07A", fontWeight: 800 }}>{scoreText}</span>
             <span style={dot} />
-            <span style={{ color: "#c9c7d0" }}>{story.source}</span>
+            {leadSource ? (
+              <SourceTrustBadge source={leadSource} hue={domainHue(story.domain)}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "#c9c7d0" }}>
+                  <SourceLogo url={leadSource.url} />
+                  {story.source}
+                </span>
+              </SourceTrustBadge>
+            ) : (
+              <span style={{ color: "#c9c7d0" }}>{story.source}</span>
+            )}
             <span style={dot} />
             <span title={exactDateLabel(story.publishedAt) || undefined}>{story.timeAgo}</span>
             <span style={dot} />
@@ -312,23 +430,25 @@ export function StoryModal({
               </p>
             </div>
           ) : null}
-          <div style={{ marginBottom: 22 }}>
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: "#a5a3ae",
-                marginBottom: 4,
-              }}
-            >
-              {story.sources.length} source{story.sources.length === 1 ? "" : "s"} covering this story
+          {isRanked ? (
+            <div style={{ marginBottom: 22 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#a5a3ae",
+                  marginBottom: 4,
+                }}
+              >
+                {story.sources.length} source{story.sources.length === 1 ? "" : "s"} covering this story
+              </div>
+              <div>
+                {story.sources.map((source) => (
+                  <SourceRow key={source.name + source.url} source={source} hue={domainHue(story.domain)} />
+                ))}
+              </div>
             </div>
-            <div>
-              {story.sources.map((source) => (
-                <SourceRow key={source.name + source.url} source={source} hue={domainHue(story.domain)} />
-              ))}
-            </div>
-          </div>
+          ) : null}
           <div style={{ display: "flex", gap: 12 }}>
             <button
               className="pulse-accent-btn"

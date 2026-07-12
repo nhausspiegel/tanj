@@ -451,6 +451,7 @@ export function PulseClient() {
           scoreText={scoreLabel(selectedIsRanked ? rankedScore(selectedStory) : score(selectedStory))}
           thumb={thumbGradient(domainHue(selectedStory.domain), 1)}
           saved={Boolean(saved[selectedStory.id])}
+          isRanked={selectedIsRanked}
           onClose={() => setSelected(null)}
           onToggleSave={() => toggleSaved(selectedStory.id)}
           onReadOriginal={() => openExternal(selectedStory.url)}
