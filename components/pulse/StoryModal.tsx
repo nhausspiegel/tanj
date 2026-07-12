@@ -283,6 +283,35 @@ export function StoryModal({
             </div>
             <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "#d6d4dd" }}>{story.tldr}</p>
           </div>
+          {story.excerpt ? (
+            <div style={{ marginBottom: 22 }}>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  color: "#66646f",
+                  marginBottom: 7,
+                }}
+              >
+                From the article
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 13.5,
+                  lineHeight: 1.6,
+                  color: "#a5a3ae",
+                  fontStyle: "italic",
+                  borderLeft: "2px solid rgba(255,255,255,0.14)",
+                  paddingLeft: 12,
+                }}
+              >
+                {story.excerpt}
+              </p>
+            </div>
+          ) : null}
           <div style={{ marginBottom: 22 }}>
             <div
               style={{

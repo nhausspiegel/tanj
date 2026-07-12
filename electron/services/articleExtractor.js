@@ -158,6 +158,16 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Trims to a sentence boundary near maxChars so the excerpt doesn't cut off
+// mid-word; falls back to a hard cut if no boundary is found early enough.
+function excerptFrom(text, maxChars) {
+  const slice = text.slice(0, maxChars + 200);
+  const lastPeriod = slice.lastIndexOf(". ");
+  return lastPeriod > maxChars * 0.5
+    ? slice.slice(0, lastPeriod + 1)
+    : slice.slice(0, maxChars);
+}
+
 /**
  * Enrich an array of articles with full-text extraction.
  * Adds `fullText` field to each article where extraction succeeds.
@@ -182,6 +192,10 @@ async function enrichArticlesWithFullText(articles, {
         results[idx] = {
           ...results[idx],
           fullText: fullText.slice(0, 5000), // Cap storage at 5k chars
+          // Real quoted text from the article itself, distinct from the AI
+          // TL;DR — persisted so the story modal can show an actual excerpt
+          // rather than only a generated summary.
+          excerpt: excerptFrom(fullText, 500),
         };
         // If the RSS summary was truncated (≤280 chars), upgrade it
         if (!results[idx].summary || results[idx].summary.length < 300) {

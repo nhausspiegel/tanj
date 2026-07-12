@@ -337,6 +337,18 @@ const migrations = [
       }
     },
   },
+  {
+    version: 7,
+    name: "add_article_excerpt",
+    up(db) {
+      const columns = db.prepare("PRAGMA table_info(articles)").all();
+      const hasExcerpt = columns.some((column) => column.name === "excerpt");
+
+      if (!hasExcerpt) {
+        db.exec(`ALTER TABLE articles ADD COLUMN excerpt TEXT;`);
+      }
+    },
+  },
 ];
 
 function ensureSchemaVersionTable(db) {

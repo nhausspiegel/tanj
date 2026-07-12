@@ -39,6 +39,7 @@ export type PulseStory = {
   processedAt?: string; // when this story was ingested locally — drives the "new" badge
   title: string;
   tldr: string;
+  excerpt?: string; // real quoted text from the article, distinct from the AI TL;DR
   url?: string; // lead source's article url
   imageUrl?: string; // real thumbnail scraped from the source feed, if any
   importance: number; // 1–5
@@ -237,6 +238,7 @@ function clusterToStory(
     }, undefined),
     title: cluster.headline,
     tldr: lead?.summary ?? cluster.summary,
+    excerpt: lead?.excerpt ?? members.find((article) => article.excerpt)?.excerpt,
     url: mostRecent?.url,
     imageUrl: members.find((article) => article.imageUrl)?.imageUrl,
     importance: lead?.importance ?? 3,
@@ -270,6 +272,7 @@ export function articlesToStories(articles: Article[], now: number = Date.now())
       processedAt: article.processed_at || undefined,
       title: article.headline,
       tldr: article.summary,
+      excerpt: article.excerpt,
       url: article.url,
       imageUrl: article.imageUrl,
       importance: article.importance,

@@ -87,6 +87,7 @@ export type Article = {
   source?: string;
   url?: string;
   imageUrl?: string;
+  excerpt?: string;
   tags: string[];
   importance: 1 | 2 | 3 | 4 | 5;
   originalImportance?: 1 | 2 | 3 | 4 | 5;
