@@ -4,8 +4,79 @@ import { useState, type CSSProperties } from "react";
 import { PULSE_ACCENT, PULSE_ACCENT_HIGHLIGHT, PULSE_ACCENT_SECONDARY, exactDateLabel, type PulseStory } from "@/lib/pulse";
 import { HeartIcon, XIcon } from "@/components/pulse/icons";
 
-function scoreExplanation(story: PulseStory, scoreText: string): string {
-  return `${scoreText} — how relevant this is to you: how recent it is, its AI importance rating, whether it touches a strategic topic, and whether it's a repeat of something already surfaced. Plus a small bonus if you follow this domain.`;
+function scoreExplanation(): string {
+  return "How relevant this is to you: how recent it is, its AI importance rating, whether it touches a strategic topic, and whether it's a repeat of something already surfaced. Plus a small bonus if you follow this domain.";
+}
+
+// Custom hover popover, not a native `title` — matches the source trust
+// popover pattern in StoryModal.tsx. Needs its own z-index above the
+// card's AI TL;DR hover overlay, otherwise that overlay visually covers
+// the badge as soon as the card itself is hovered.
+function ScoreBadge({ scoreValue }: { scoreValue: number }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        position: "absolute",
+        left: 10,
+        top: 10,
+        zIndex: 5,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        lineHeight: 1,
+        background: "rgba(19,26,37,0.65)",
+        border: "1px solid rgba(74,208,122,0.35)",
+        backdropFilter: "blur(6px)",
+        borderRadius: 8,
+        padding: "5px 9px",
+        cursor: "default",
+      }}
+    >
+      <span style={{ fontSize: 15, fontWeight: 900, color: "#4AD07A", letterSpacing: "-0.02em" }}>
+        {scoreValue.toFixed(1)}
+      </span>
+      <span
+        style={{
+          fontSize: 7.5,
+          fontWeight: 800,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          color: "rgba(74,208,122,0.65)",
+          marginTop: 1,
+        }}
+      >
+        score
+      </span>
+      {hovered ? (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            left: 0,
+            width: 210,
+            background: "#1E273A",
+            border: "1px solid rgba(255,255,255,0.14)",
+            borderRadius: 8,
+            padding: "10px 12px",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+            zIndex: 10,
+            pointerEvents: "none",
+            fontSize: 11.5,
+            lineHeight: 1.5,
+            fontWeight: 500,
+            color: "#d6d4dd",
+            textTransform: "none",
+            letterSpacing: "normal",
+          }}
+        >
+          {scoreExplanation()}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export type StoryCardProps = {
@@ -110,40 +181,7 @@ export function StoryCard({
             }}
           />
         ) : null}
-        <div
-          title={scoreExplanation(story, scoreText)}
-          style={{
-            position: "absolute",
-            left: 10,
-            top: 10,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            lineHeight: 1,
-            background: "rgba(19,26,37,0.65)",
-            border: "1px solid rgba(74,208,122,0.35)",
-            backdropFilter: "blur(6px)",
-            borderRadius: 8,
-            padding: "5px 9px",
-            cursor: "default",
-          }}
-        >
-          <span style={{ fontSize: 15, fontWeight: 900, color: "#4AD07A", letterSpacing: "-0.02em" }}>
-            {scoreValue.toFixed(1)}
-          </span>
-          <span
-            style={{
-              fontSize: 7.5,
-              fontWeight: 800,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: "rgba(74,208,122,0.65)",
-              marginTop: 1,
-            }}
-          >
-            score
-          </span>
-        </div>
+        <ScoreBadge scoreValue={scoreValue} />
         {isNew ? (
           <span
             title="New since your last refresh"
