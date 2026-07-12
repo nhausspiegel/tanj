@@ -68,7 +68,7 @@ export type PulseStory = {
   sources: PulseSourceRef[]; // every contributing article, sorted most-recent-first
   baseScore: number; // 1–10 personalized base, before live vote/save adjustments
   impactScore?: number; // 1–10 cluster impact (source count + recency + importance + alignment + novelty)
-  tags?: string[]; // topical tags/entities — used by Trends for the event chips
+  scoreBreakdown?: ArticleScoreBreakdown; // Dashboard-only; powers the score popover's bars
 };
 
 // One row of prior scoring history for a story/cluster, read back from
@@ -220,22 +220,51 @@ function hoursSince(value: string | undefined, now: number): number {
   return Math.max(0, (now - then) / (60 * 60 * 1000));
 }
 
-// Dashboard relevance score: "should this show up for you" — one article,
-// no corroboration signal (structurally undefined at n=1). See
-// pulse_score_plan_new.md for why this differs from the Trends formula.
-export function computeArticleRelevanceScore(inputs: {
+export type ArticleScoreBreakdown = {
+  recency: number;
+  importance: number;
+  tag: number;
+  novelty: number;
+};
+
+// Ceilings for each term, for rendering the breakdown as bars (StoryCard's
+// score popover) — matches the term math in articleScoreTerms below.
+export const RELEVANCE_MAX: ArticleScoreBreakdown = {
+  recency: 2,
+  importance: 3.5,
+  tag: 2,
+  novelty: 1,
+};
+
+type ArticleRelevanceInputs = {
   hoursAgo: number;
   importance: number;
   tags: string[];
   headline: string;
   previousStories: PulseHistorySnapshot[];
-}): number {
-  const raw =
-    recencyScoreFromAgeHours(inputs.hoursAgo) +
-    importanceScoreFromValues([inputs.importance]) +
-    tagAlignmentScoreFromTags(inputs.tags) +
-    noveltyScoreFromOverlap(inputs.tags, inputs.headline, inputs.previousStories);
-  return clamp(raw, 1, 10);
+};
+
+function articleScoreTerms(inputs: ArticleRelevanceInputs): ArticleScoreBreakdown {
+  return {
+    recency: recencyScoreFromAgeHours(inputs.hoursAgo),
+    importance: importanceScoreFromValues([inputs.importance]),
+    tag: tagAlignmentScoreFromTags(inputs.tags),
+    novelty: noveltyScoreFromOverlap(inputs.tags, inputs.headline, inputs.previousStories),
+  };
+}
+
+// Dashboard relevance score: "should this show up for you" — one article,
+// no corroboration signal (structurally undefined at n=1). See
+// pulse_score_plan_new.md for why this differs from the Trends formula.
+export function computeArticleRelevanceScore(inputs: ArticleRelevanceInputs): number {
+  const terms = articleScoreTerms(inputs);
+  return clamp(terms.recency + terms.importance + terms.tag + terms.novelty, 1, 10);
+}
+
+// Same math as computeArticleRelevanceScore, unclamped and split by term —
+// feeds the score popover's visual bar breakdown on the Dashboard card.
+export function explainArticleRelevanceScore(inputs: ArticleRelevanceInputs): ArticleScoreBreakdown {
+  return articleScoreTerms(inputs);
 }
 
 // Bucketed delta-since-last-snapshot, not a true rate: refresh cadence is
@@ -386,6 +415,13 @@ export function articlesToStories(
       tags: article.tags,
       sources: [sourceRef],
       baseScore: computeArticleRelevanceScore({
+        hoursAgo,
+        importance: article.importance,
+        tags: article.tags,
+        headline: article.headline,
+        previousStories,
+      }),
+      scoreBreakdown: explainArticleRelevanceScore({
         hoursAgo,
         importance: article.importance,
         tags: article.tags,

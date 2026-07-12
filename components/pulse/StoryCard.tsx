@@ -1,18 +1,61 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
-import { PULSE_ACCENT, PULSE_ACCENT_HIGHLIGHT, PULSE_ACCENT_SECONDARY, exactDateLabel, type PulseStory } from "@/lib/pulse";
+import {
+  PULSE_ACCENT,
+  PULSE_ACCENT_HIGHLIGHT,
+  PULSE_ACCENT_SECONDARY,
+  RELEVANCE_MAX,
+  exactDateLabel,
+  type ArticleScoreBreakdown,
+  type PulseStory,
+} from "@/lib/pulse";
 import { HeartIcon, XIcon } from "@/components/pulse/icons";
 
-function scoreExplanation(): string {
-  return "How relevant this is to you: how recent it is, its AI importance rating, whether it touches a strategic topic, and whether it's a repeat of something already surfaced. Plus a small bonus if you follow this domain.";
+const SCORE_TERMS: Array<{ key: keyof ArticleScoreBreakdown; label: string }> = [
+  { key: "recency", label: "Recency" },
+  { key: "importance", label: "Importance" },
+  { key: "tag", label: "Topic match" },
+  { key: "novelty", label: "Freshness" },
+];
+
+function scoreBar(label: string, value: number, max: number) {
+  const pct = Math.max(0, Math.min(100, (value / max) * 100));
+  return (
+    <div key={label} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+      <span style={{ width: 74, fontSize: 10, fontWeight: 700, color: "#9a98a3", flexShrink: 0 }}>
+        {label}
+      </span>
+      <span
+        style={{
+          flex: 1,
+          height: 5,
+          borderRadius: 3,
+          background: "rgba(255,255,255,0.1)",
+          overflow: "hidden",
+        }}
+      >
+        <span
+          style={{
+            display: "block",
+            height: "100%",
+            width: `${pct}%`,
+            borderRadius: 3,
+            background: "#4AD07A",
+          }}
+        />
+      </span>
+    </div>
+  );
 }
 
 // Custom hover popover, not a native `title` — matches the source trust
-// popover pattern in StoryModal.tsx. Needs its own z-index above the
-// card's AI TL;DR hover overlay, otherwise that overlay visually covers
-// the badge as soon as the card itself is hovered.
-function ScoreBadge({ scoreValue }: { scoreValue: number }) {
+// popover pattern in StoryModal.tsx. Renders as a sibling of the (clipped)
+// thumbnail rather than a child of it, so the popover isn't cut off by the
+// thumbnail's own overflow:hidden; the badge's own z-index keeps it above
+// the AI TL;DR hover overlay, which is padded to clear the badge's footprint
+// so the two never visually overlap.
+function ScoreBadge({ scoreValue, breakdown }: { scoreValue: number; breakdown?: ArticleScoreBreakdown }) {
   const [hovered, setHovered] = useState(false);
   return (
     <div
@@ -50,29 +93,39 @@ function ScoreBadge({ scoreValue }: { scoreValue: number }) {
       >
         score
       </span>
-      {hovered ? (
+      {hovered && breakdown ? (
         <div
           style={{
             position: "absolute",
             top: "calc(100% + 8px)",
             left: 0,
-            width: 210,
+            width: 200,
             background: "#1E273A",
             border: "1px solid rgba(255,255,255,0.14)",
             borderRadius: 8,
-            padding: "10px 12px",
+            padding: "11px 12px",
             boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
             zIndex: 10,
             pointerEvents: "none",
-            fontSize: 11.5,
-            lineHeight: 1.5,
-            fontWeight: 500,
-            color: "#d6d4dd",
-            textTransform: "none",
-            letterSpacing: "normal",
+            display: "flex",
+            flexDirection: "column",
+            gap: 7,
           }}
         >
-          {scoreExplanation()}
+          {SCORE_TERMS.map(({ key, label }) => scoreBar(label, breakdown[key], RELEVANCE_MAX[key]))}
+          <p
+            style={{
+              margin: "2px 0 0",
+              fontSize: 9.5,
+              lineHeight: 1.4,
+              color: "#6f6d78",
+              textTransform: "none",
+              letterSpacing: "normal",
+              fontWeight: 500,
+            }}
+          >
+            +1 if you follow this domain
+          </p>
         </div>
       ) : null}
     </div>
@@ -152,19 +205,32 @@ export function StoryCard({
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
       style={{
+        position: "relative",
         width: 290,
         flexShrink: 0,
         background: "#171F2C",
         border: "1px solid rgba(255,255,255,0.08)",
         borderRadius: 10,
-        overflow: "hidden",
+        // Not "hidden": the score badge's hover popover needs to escape this
+        // box without being clipped by it (it renders below the badge, past
+        // the thumbnail's bottom edge). The thumbnail below clips its own
+        // image/overlay content via its own overflow + matching corner radius.
+        overflow: "visible",
         cursor: "pointer",
         filter: dismissed ? "grayscale(1)" : undefined,
         opacity: dismissed ? 0.45 : 1,
         transition: "opacity 0.25s ease, filter 0.25s ease",
       }}
     >
-      <div style={{ position: "relative", height: 150, background: thumb, overflow: "hidden" }}>
+      <div
+        style={{
+          position: "relative",
+          height: 150,
+          background: thumb,
+          overflow: "hidden",
+          borderRadius: "10px 10px 0 0",
+        }}
+      >
         {story.imageUrl && !imgFailed ? (
           // Feed-hosted images vary too widely in domain to whitelist for next/image.
           // eslint-disable-next-line @next/next/no-img-element
@@ -181,7 +247,6 @@ export function StoryCard({
             }}
           />
         ) : null}
-        <ScoreBadge scoreValue={scoreValue} />
         {isNew ? (
           <span
             title="New since your last refresh"
@@ -227,7 +292,9 @@ export function StoryCard({
             background: "rgba(19,26,37,0.86)",
             opacity: hovered ? 1 : 0,
             transition: "opacity 0.25s ease",
-            padding: 14,
+            // Extra top padding clears the score badge's footprint (top-left,
+            // ~10px + ~40px tall) so this text never renders underneath it.
+            padding: "56px 14px 14px",
             display: "flex",
             flexDirection: "column",
             gap: 6,
@@ -261,6 +328,7 @@ export function StoryCard({
           </p>
         </div>
       </div>
+      <ScoreBadge scoreValue={scoreValue} breakdown={story.scoreBreakdown} />
 
       <div style={{ padding: "14px 14px 15px", display: "flex", flexDirection: "column", gap: 8 }}>
         <h3
