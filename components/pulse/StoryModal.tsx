@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { PULSE_ACCENT, domainHue, domainLabel, exactDateLabel, sourceMark, type PulseSourceRef, type PulseStory } from "@/lib/pulse";
 import { recencyLabel, recencyScore, trustLabel } from "@/lib/outlets";
 
@@ -35,6 +35,7 @@ function meterBar(value: number, key: string) {
 }
 
 function SourceRow({ source, hue }: { source: PulseSourceRef; hue: number }) {
+  const [meterHovered, setMeterHovered] = useState(false);
   const recency = recencyScore(source.hoursAgo);
   const meterTitle = `Recency: ${recencyLabel(recency)} · Reputability: ${trustLabel(source.reputability)} · Reach: ${trustLabel(source.reach)}`;
 
@@ -94,10 +95,43 @@ function SourceRow({ source, hue }: { source: PulseSourceRef; hue: number }) {
         </p>
       </div>
       <div
-        title={meterTitle}
-        style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 16, flexShrink: 0, marginTop: 2 }}
+        onMouseEnter={() => setMeterHovered(true)}
+        onMouseLeave={() => setMeterHovered(false)}
+        style={{
+          position: "relative",
+          display: "flex",
+          alignItems: "flex-end",
+          gap: 2,
+          height: 24,
+          padding: "4px 6px",
+          margin: "-4px -6px 0 0",
+          flexShrink: 0,
+        }}
       >
         {[meterBar(recency, "recency"), meterBar(source.reputability, "rep"), meterBar(source.reach, "reach")]}
+        {meterHovered ? (
+          <div
+            style={{
+              position: "absolute",
+              bottom: "calc(100% + 6px)",
+              right: 0,
+              maxWidth: 220,
+              width: "max-content",
+              background: "#1E273A",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 6,
+              padding: "6px 9px",
+              fontSize: 11,
+              lineHeight: 1.4,
+              color: "#d6d4dd",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+              zIndex: 10,
+              pointerEvents: "none",
+            }}
+          >
+            {meterTitle}
+          </div>
+        ) : null}
       </div>
     </a>
   );
