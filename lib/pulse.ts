@@ -9,13 +9,27 @@ import { clusterArticles } from "@/lib/clustering";
 import { outletTrust, sourceComposite } from "@/lib/outlets";
 
 // ── TANJ palette ──────────────────────────────────────────────────
-export const PULSE_ACCENT = "#DEF478";
+// Exported as CSS custom properties (defined in app/globals.css :root),
+// not raw hex, so dev-mode theme overrides (Settings) can repaint the whole
+// app at runtime via document.documentElement.style.setProperty — no need
+// to thread a color prop through every consuming component.
+//
+// Primary accent: periwinkle by default. Used for brand chrome, buttons,
+// active states, badges.
+export const PULSE_ACCENT = "var(--pulse-accent)";
+// Secondary accent: sky blue by default. Reserved for AI-generated content
+// labels (AI TL;DR, brief/insight eyebrows) — a deliberate second role, not
+// a random alternation with the primary.
+export const PULSE_ACCENT_SECONDARY = "var(--pulse-accent-secondary)";
+// Yellow-green by default. A rare, deliberate highlight — currently only
+// the "NEW" badge. Don't blanket-replace PULSE_ACCENT with this.
+export const PULSE_ACCENT_HIGHLIGHT = "var(--pulse-accent-highlight)";
 
-// Not wired into the UI yet — held here for future secondary accents /
-// domain hues (e.g. periwinkle for a secondary button, sky for a hover
-// state). Add usages deliberately rather than blanket-replacing grays.
-export const PULSE_ACCENT_SECONDARY = "#788CE3"; // periwinkle
-export const PULSE_ACCENT_TERTIARY = "#83CDFF"; // sky blue
+// Default hex values backing the CSS custom properties above — used to
+// seed :root in globals.css and as the reset target for theme overrides.
+export const PULSE_ACCENT_DEFAULT_HEX = "#788CE3";
+export const PULSE_ACCENT_SECONDARY_DEFAULT_HEX = "#83CDFF";
+export const PULSE_ACCENT_HIGHLIGHT_DEFAULT_HEX = "#DEF478";
 
 // One row per contributing article inside a merged story. reputability/reach
 // are 1-5 editorial-trust scores from lib/outlets.ts; composite is the
@@ -103,8 +117,17 @@ export function domainLabel(domain: ArticleDomain): string {
   return PULSE_DOMAIN_LABELS[domain] ?? domain;
 }
 
+// Dev-mode per-domain hue overrides (Settings), applied on top of
+// DOMAIN_HUE. Set once via setDomainHueOverrides() when preferences load;
+// domainHue() reads it on every call so changes take effect immediately.
+let domainHueOverrides: Partial<Record<string, number>> = {};
+
+export function setDomainHueOverrides(overrides: Partial<Record<string, number>> | undefined): void {
+  domainHueOverrides = overrides ?? {};
+}
+
 export function domainHue(domain: ArticleDomain): number {
-  return DOMAIN_HUE[domain] ?? 210;
+  return domainHueOverrides[domain] ?? DOMAIN_HUE[domain] ?? 210;
 }
 
 function clamp(value: number, min: number, max: number): number {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
-import { PULSE_ACCENT, exactDateLabel, type PulseStory } from "@/lib/pulse";
+import { PULSE_ACCENT, PULSE_ACCENT_HIGHLIGHT, PULSE_ACCENT_SECONDARY, exactDateLabel, type PulseStory } from "@/lib/pulse";
 import { HeartIcon, XIcon } from "@/components/pulse/icons";
 
 function scoreExplanation(story: PulseStory, scoreText: string): string {
@@ -158,7 +158,7 @@ export function StoryCard({
               fontWeight: 800,
               letterSpacing: "0.1em",
               color: "#131A25",
-              background: PULSE_ACCENT,
+              background: PULSE_ACCENT_HIGHLIGHT,
               padding: "4px 8px",
               borderRadius: 4,
             }}
@@ -205,7 +205,7 @@ export function StoryCard({
               fontWeight: 800,
               letterSpacing: "0.14em",
               textTransform: "uppercase",
-              color: PULSE_ACCENT,
+              color: PULSE_ACCENT_SECONDARY,
             }}
           >
             AI TL;DR

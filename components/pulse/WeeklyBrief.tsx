@@ -1,6 +1,6 @@
 "use client";
 
-import { PULSE_ACCENT } from "@/lib/pulse";
+import { PULSE_ACCENT, PULSE_ACCENT_SECONDARY } from "@/lib/pulse";
 
 const card = {
   background: "#171F2C",
@@ -34,7 +34,7 @@ export function WeeklyBrief({
       }}
     >
       <div style={card}>
-        <div style={{ ...microLabel, color: PULSE_ACCENT, marginBottom: 12 }}>This week in signal</div>
+        <div style={{ ...microLabel, color: PULSE_ACCENT_SECONDARY, marginBottom: 12 }}>This week in signal</div>
         <p style={{ margin: 0, fontSize: 15, lineHeight: 1.75, color: "#d6d4dd", textWrap: "pretty" }}>
           {signalParagraph}
         </p>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
-import { PULSE_ACCENT, domainHue, domainLabel, exactDateLabel, sourceMark, type PulseSourceRef, type PulseStory } from "@/lib/pulse";
+import { PULSE_ACCENT, PULSE_ACCENT_SECONDARY, domainHue, domainLabel, exactDateLabel, sourceMark, type PulseSourceRef, type PulseStory } from "@/lib/pulse";
 import { recencyLabel, recencyScore, trustLabel } from "@/lib/outlets";
 import { HeartIcon } from "@/components/pulse/icons";
 
@@ -275,7 +275,7 @@ export function StoryModal({
                 fontWeight: 800,
                 letterSpacing: "0.14em",
                 textTransform: "uppercase",
-                color: PULSE_ACCENT,
+                color: PULSE_ACCENT_SECONDARY,
                 marginBottom: 7,
               }}
             >

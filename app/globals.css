@@ -4,6 +4,11 @@
 
 :root {
   color-scheme: dark;
+  /* Dev-mode theme overrides (Settings) repaint these at runtime via
+     document.documentElement.style.setProperty — see lib/pulse.ts. */
+  --pulse-accent: #788CE3;
+  --pulse-accent-secondary: #83CDFF;
+  --pulse-accent-highlight: #DEF478;
 }
 
 html,

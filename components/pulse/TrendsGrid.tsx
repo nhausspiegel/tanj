@@ -1,6 +1,6 @@
 "use client";
 
-import { PULSE_ACCENT, exactDateLabel } from "@/lib/pulse";
+import { PULSE_ACCENT, PULSE_ACCENT_HIGHLIGHT, exactDateLabel } from "@/lib/pulse";
 
 export type TrendItem = {
   key: string;
@@ -170,7 +170,7 @@ export function TrendsGrid({ items }: { items: TrendItem[] }) {
                       fontWeight: 800,
                       letterSpacing: "0.1em",
                       color: "#131A25",
-                      background: PULSE_ACCENT,
+                      background: PULSE_ACCENT_HIGHLIGHT,
                       padding: "3px 6px",
                       borderRadius: 4,
                       flexShrink: 0,

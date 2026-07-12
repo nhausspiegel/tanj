@@ -22,6 +22,7 @@ import { TrendsGrid, type TrendItem } from "@/components/pulse/TrendsGrid";
 import { WeeklyBrief } from "@/components/pulse/WeeklyBrief";
 import { StoryModal } from "@/components/pulse/StoryModal";
 import { SettingsModal } from "@/components/pulse/SettingsModal";
+import { useThemeOverrides } from "@/components/pulse/useThemeOverrides";
 
 type Page = "foryou" | "all" | "trends" | "brief";
 
@@ -45,6 +46,7 @@ function openExternal(url?: string) {
 }
 
 export function PulseClient() {
+  useThemeOverrides();
   const {
     stories,
     rankedStories,
