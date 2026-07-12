@@ -246,7 +246,7 @@ function clusterToStory(
 }
 
 // One story per article — no merging. Used by the Dashboard (Netflix rows,
-// hero, My List): keep articles separate for now, per-source.
+// hero, My Likes): keep articles separate for now, per-source.
 export function articlesToStories(articles: Article[], now: number = Date.now()): PulseStory[] {
   return articles.map((article) => {
     const name = article.source ?? "Unknown";

@@ -3,6 +3,7 @@
 import { useState, type CSSProperties } from "react";
 import { PULSE_ACCENT, domainHue, domainLabel, exactDateLabel, sourceMark, type PulseSourceRef, type PulseStory } from "@/lib/pulse";
 import { recencyLabel, recencyScore, trustLabel } from "@/lib/outlets";
+import { HeartIcon } from "@/components/pulse/icons";
 
 const dot: CSSProperties = {
   width: 3,
@@ -141,7 +142,7 @@ export function StoryModal({
   story,
   scoreText,
   thumb,
-  saveLabel,
+  saved,
   onClose,
   onToggleSave,
   onReadOriginal,
@@ -149,7 +150,7 @@ export function StoryModal({
   story: PulseStory;
   scoreText: string;
   thumb: string;
-  saveLabel: string;
+  saved: boolean;
   onClose: () => void;
   onToggleSave: () => void;
   onReadOriginal: () => void;
@@ -323,9 +324,12 @@ export function StoryModal({
               className="pulse-glass-btn"
               onClick={onToggleSave}
               style={{
-                background: "rgba(255,255,255,0.08)",
-                color: "#F7F3E6",
-                border: "1px solid rgba(255,255,255,0.16)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                background: saved ? PULSE_ACCENT : "rgba(255,255,255,0.08)",
+                color: saved ? "#131A25" : "#F7F3E6",
+                border: `1px solid ${saved ? PULSE_ACCENT : "rgba(255,255,255,0.16)"}`,
                 fontFamily: "inherit",
                 fontSize: 13.5,
                 fontWeight: 700,
@@ -334,7 +338,8 @@ export function StoryModal({
                 cursor: "pointer",
               }}
             >
-              {saveLabel}
+              <HeartIcon filled={saved} />
+              {saved ? "Liked" : "Like"}
             </button>
           </div>
         </div>

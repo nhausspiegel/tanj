@@ -2,7 +2,7 @@
 
 import { useState, type CSSProperties } from "react";
 import { PULSE_ACCENT, exactDateLabel, sourceMark, type PulseStory } from "@/lib/pulse";
-import { ThumbIcon } from "@/components/pulse/icons";
+import { HeartIcon, XIcon } from "@/components/pulse/icons";
 
 function scoreExplanation(story: PulseStory, scoreText: string): string {
   const n = story.sources.length;
@@ -49,26 +49,27 @@ export function StoryCard({
 }: StoryCardProps) {
   const [imgFailed, setImgFailed] = useState(false);
   const scoreValue = Number.parseFloat(scoreText) || 0;
-  const likeStyle: CSSProperties = {
+  const dismissed = vote === -1;
+  const heartStyle: CSSProperties = {
     width: 26,
     height: 26,
     borderRadius: "50%",
-    border: `1px solid ${vote === 1 ? PULSE_ACCENT : "rgba(255,255,255,0.14)"}`,
-    background: vote === 1 ? PULSE_ACCENT : "transparent",
-    color: vote === 1 ? "#131A25" : "#8a8894",
+    border: `1px solid ${saved ? PULSE_ACCENT : "rgba(255,255,255,0.14)"}`,
+    background: saved ? PULSE_ACCENT : "transparent",
+    color: saved ? "#131A25" : "#8a8894",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     padding: 0,
   };
-  const dislikeStyle: CSSProperties = {
+  const dismissStyle: CSSProperties = {
     width: 26,
     height: 26,
     borderRadius: "50%",
-    border: `1px solid ${vote === -1 ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.14)"}`,
-    background: vote === -1 ? "rgba(255,255,255,0.18)" : "transparent",
-    color: vote === -1 ? "#F7F3E6" : "#8a8894",
+    border: `1px solid ${dismissed ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.14)"}`,
+    background: dismissed ? "rgba(255,255,255,0.18)" : "transparent",
+    color: dismissed ? "#F7F3E6" : "#8a8894",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
@@ -90,6 +91,9 @@ export function StoryCard({
         borderRadius: 10,
         overflow: "hidden",
         cursor: "pointer",
+        filter: dismissed ? "grayscale(1)" : undefined,
+        opacity: dismissed ? 0.45 : 1,
+        transition: "opacity 0.25s ease, filter 0.25s ease",
       }}
     >
       <div style={{ position: "relative", height: 150, background: thumb, overflow: "hidden" }}>
@@ -157,7 +161,7 @@ export function StoryCard({
               backdropFilter: "blur(4px)",
             }}
           >
-            SAVED
+            LIKED
           </span>
         ) : null}
         <div
@@ -263,18 +267,18 @@ export function StoryCard({
             <button
               className="pulse-vote"
               onClick={onLike}
-              title="Boost — raises affinity for this story and its domain"
-              style={likeStyle}
+              title={saved ? "Remove from My Likes" : "Add to My Likes"}
+              style={heartStyle}
             >
-              <ThumbIcon />
+              <HeartIcon filled={saved} />
             </button>
             <button
               className="pulse-vote"
               onClick={onDislike}
-              title="Suppress — lowers affinity for this story and its domain"
-              style={dislikeStyle}
+              title={dismissed ? "Bring back" : "Not interested — moves to the end and greys out"}
+              style={dismissStyle}
             >
-              <ThumbIcon down />
+              <XIcon />
             </button>
           </div>
         </div>

@@ -135,9 +135,17 @@ export function PulseClient() {
       .join(" · ");
   }, [stories]);
 
+  // Dismissed (X'd) stories always sort to the very end of their row,
+  // regardless of score — that's the whole point of dismissing one.
   const sortedByScore = useCallback(
-    (list: PulseStory[]) => list.slice().sort((a, b) => score(b) - score(a)),
-    [score],
+    (list: PulseStory[]) =>
+      list.slice().sort((a, b) => {
+        const aDismissed = votes[a.id] === -1;
+        const bDismissed = votes[b.id] === -1;
+        if (aDismissed !== bDismissed) return aDismissed ? 1 : -1;
+        return score(b) - score(a);
+      }),
+    [score, votes],
   );
 
   // Hero = top 4 stories overall by live score.
@@ -173,14 +181,14 @@ export function PulseClient() {
         onLeave: () => setHovered((h) => (h === story.id ? null : h)),
         onLike: (e) => {
           e.stopPropagation();
-          setVote(story.id, 1);
+          toggleSaved(story.id);
         },
         onDislike: (e) => {
           e.stopPropagation();
           setVote(story.id, -1);
         },
       })),
-    [score, saved, votes, hovered, setVote, newSinceRefreshAt],
+    [score, saved, votes, hovered, setVote, toggleSaved, newSinceRefreshAt],
   );
 
   const rows: RowViewModel[] = useMemo(() => {
@@ -200,15 +208,17 @@ export function PulseClient() {
         .filter((d) => followed[d])
         .map((d) => ({ key: d, label: domainLabel(d), list: storiesFor(d) }));
 
+      // Suggested/My Likes are the personalized picks — lead with them, not
+      // bury them below every followed-domain row.
       const unfollowed = domainsWithStories.filter((d) => !followed[d]);
       if (unfollowed.length) {
         const pool = sortedByScore(stories.filter((s) => unfollowed.includes(s.domain))).slice(0, 8);
-        if (pool.length) defs.push({ key: "suggested", label: "Suggested for You", list: pool });
+        if (pool.length) defs.unshift({ key: "suggested", label: "Suggested for You", list: pool });
       }
       if (savedIds.length) {
         defs.unshift({
-          key: "mylist",
-          label: "My List",
+          key: "mylikes",
+          label: "My Likes",
           list: savedIds.map((id) => byId.get(id)).filter((s): s is PulseStory => Boolean(s)),
         });
       }
@@ -218,7 +228,7 @@ export function PulseClient() {
       key: def.key,
       label: def.label,
       count: def.list.length,
-      removable: page === "foryou" && def.key !== "mylist" && def.key !== "suggested",
+      removable: page === "foryou" && def.key !== "mylikes" && def.key !== "suggested",
       addable: page === "all" && !followed[def.key],
       inFeed: page === "all" && !!followed[def.key],
       onRemove: () => setFollowed(def.key, false),
@@ -280,16 +290,16 @@ export function PulseClient() {
       onClick: () => goToPage(n.key),
     }));
     items.push({
-      key: "mylist",
-      label: "My List",
+      key: "mylikes",
+      label: "My Likes",
       badge: String(savedIds.length),
       active: false,
       onClick: () => {
         if (page !== "foryou") {
           setPage("foryou");
-          setTimeout(() => scrollToRow("mylist"), 80);
+          setTimeout(() => scrollToRow("mylikes"), 80);
         } else {
-          scrollToRow("mylist");
+          scrollToRow("mylikes");
         }
       },
     });
@@ -373,9 +383,7 @@ export function PulseClient() {
           <PulseHero
             heroes={heroes}
             index={safeHeroIndex}
-            saveLabel={
-              heroes[safeHeroIndex] && saved[heroes[safeHeroIndex].id] ? "✓ In My List" : "+ My List"
-            }
+            saved={Boolean(heroes[safeHeroIndex] && saved[heroes[safeHeroIndex].id])}
             onOpen={() => setSelected(heroes[safeHeroIndex]?.id ?? null)}
             onSave={() => heroes[safeHeroIndex] && toggleSaved(heroes[safeHeroIndex].id)}
             onSelectIndex={setHeroIndex}
@@ -440,7 +448,7 @@ export function PulseClient() {
           story={selectedStory}
           scoreText={scoreLabel(selectedIsRanked ? rankedScore(selectedStory) : score(selectedStory))}
           thumb={thumbGradient(domainHue(selectedStory.domain), 1)}
-          saveLabel={saved[selectedStory.id] ? "✓ Saved" : "+ Save to My List"}
+          saved={Boolean(saved[selectedStory.id])}
           onClose={() => setSelected(null)}
           onToggleSave={() => toggleSaved(selectedStory.id)}
           onReadOriginal={() => openExternal(selectedStory.url)}

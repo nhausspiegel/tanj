@@ -1,20 +1,21 @@
 "use client";
 
 import { PULSE_ACCENT, domainHue, domainLabel, type PulseStory } from "@/lib/pulse";
+import { HeartIcon } from "@/components/pulse/icons";
 
 const HERO_HUE = 194; // Electric theme hero tint
 
 export function PulseHero({
   heroes,
   index,
-  saveLabel,
+  saved,
   onOpen,
   onSave,
   onSelectIndex,
 }: {
   heroes: PulseStory[];
   index: number;
-  saveLabel: string;
+  saved: boolean;
   onOpen: () => void;
   onSave: () => void;
   onSelectIndex: (i: number) => void;
@@ -127,9 +128,12 @@ export function PulseHero({
             className="pulse-glass-btn"
             onClick={onSave}
             style={{
-              background: "rgba(255,255,255,0.09)",
-              color: "#F7F3E6",
-              border: "1px solid rgba(255,255,255,0.18)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              background: saved ? PULSE_ACCENT : "rgba(255,255,255,0.09)",
+              color: saved ? "#131A25" : "#F7F3E6",
+              border: `1px solid ${saved ? PULSE_ACCENT : "rgba(255,255,255,0.18)"}`,
               fontFamily: "inherit",
               fontSize: 14,
               fontWeight: 700,
@@ -138,7 +142,8 @@ export function PulseHero({
               cursor: "pointer",
             }}
           >
-            {saveLabel}
+            <HeartIcon filled={saved} />
+            {saved ? "Liked" : "Like"}
           </button>
         </div>
       </div>
