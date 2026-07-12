@@ -9,9 +9,44 @@ const defaultPreferences = {
   // main process.
   aiProvider: "openai",
   aiApiKey: "",
+  // Dev mode: exposes low-level tuning knobs in Settings so these can be
+  // adjusted without a code change. "" / 0 / {} fields below mean "use the
+  // built-in default" — see the services that read each group.
+  devMode: false,
+  refreshTuning: {
+    maxConcurrentFeeds: 3,
+    feedBatchPauseMs: 150,
+    maxFeedBytes: 1_500_000,
+    feedTimeoutMs: 15000,
+    maxExtractionArticles: 80,
+    maxTotalArticles: 500,
+  },
+  aiTuning: {
+    model: "",
+    batchSize: 6,
+    pauseBetweenBatchesMs: 300,
+    maxOutputTokens: 2000,
+    temperature: 0,
+    ollamaBaseUrl: "",
+    keepAlive: "",
+  },
+  resourceTuning: {
+    warningFreeMemoryMb: 768,
+    minFreeMemoryMb: 256,
+    warningProcessRssMb: 1024,
+    maxProcessRssMb: 1536,
+  },
+  themeOverrides: {
+    accentPrimary: "",
+    accentSecondary: "",
+    accentHighlight: "",
+  },
+  domainHueOverrides: {},
+  disabledSources: [],
 };
 
 const AI_PROVIDERS = new Set(["openai", "anthropic"]);
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
 const defaultScanState = {
   teachingIds: [],
@@ -29,6 +64,18 @@ function safeParse(value, fallback = null) {
   }
 }
 
+function clampedInt(value, min, max) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  return Math.max(min, Math.min(max, Math.floor(numeric)));
+}
+
+function clampedFloat(value, min, max) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  return Math.max(min, Math.min(max, numeric));
+}
+
 function getPreference(db, key, fallback = null) {
   const row = db.prepare("SELECT value_json FROM preferences WHERE key = ?").get(key);
   return row ? safeParse(row.value_json, fallback) : fallback;
@@ -42,12 +89,32 @@ function savePreference(db, key, value) {
   `).run(key, JSON.stringify(value));
 }
 
+const TUNING_GROUPS = ["refreshTuning", "aiTuning", "resourceTuning", "themeOverrides"];
+
 function getPreferences(db) {
   const stored = getPreference(db, "settings", {});
-  return {
+  const merged = {
     ...defaultPreferences,
     ...(stored && typeof stored === "object" ? stored : {}),
   };
+
+  // Nested tuning groups deep-merge against their defaults so a stored blob
+  // predating a newly-added field still gets that field's default instead
+  // of losing it to a shallow top-level overwrite.
+  for (const group of TUNING_GROUPS) {
+    merged[group] = {
+      ...defaultPreferences[group],
+      ...(stored?.[group] && typeof stored[group] === "object" ? stored[group] : {}),
+    };
+  }
+
+  merged.domainHueOverrides =
+    stored?.domainHueOverrides && typeof stored.domainHueOverrides === "object"
+      ? stored.domainHueOverrides
+      : {};
+  merged.disabledSources = Array.isArray(stored?.disabledSources) ? stored.disabledSources : [];
+
+  return merged;
 }
 
 function savePreferences(db, next) {
@@ -84,6 +151,71 @@ function savePreferences(db, next) {
 
   if (AI_PROVIDERS.has(next.aiProvider)) {
     sanitized.aiProvider = next.aiProvider;
+  }
+
+  if (typeof next.devMode === "boolean") {
+    sanitized.devMode = next.devMode;
+  }
+
+  if (next.refreshTuning && typeof next.refreshTuning === "object") {
+    const t = next.refreshTuning;
+    const rt = { ...sanitized.refreshTuning };
+    if (clampedInt(t.maxConcurrentFeeds, 1, 12) !== null) rt.maxConcurrentFeeds = clampedInt(t.maxConcurrentFeeds, 1, 12);
+    if (clampedInt(t.feedBatchPauseMs, 0, 10000) !== null) rt.feedBatchPauseMs = clampedInt(t.feedBatchPauseMs, 0, 10000);
+    if (clampedInt(t.maxFeedBytes, 10_000, 20_000_000) !== null) rt.maxFeedBytes = clampedInt(t.maxFeedBytes, 10_000, 20_000_000);
+    if (clampedInt(t.feedTimeoutMs, 1000, 120000) !== null) rt.feedTimeoutMs = clampedInt(t.feedTimeoutMs, 1000, 120000);
+    if (clampedInt(t.maxExtractionArticles, 0, 500) !== null) rt.maxExtractionArticles = clampedInt(t.maxExtractionArticles, 0, 500);
+    if (clampedInt(t.maxTotalArticles, 10, 2000) !== null) rt.maxTotalArticles = clampedInt(t.maxTotalArticles, 10, 2000);
+    sanitized.refreshTuning = rt;
+  }
+
+  if (next.aiTuning && typeof next.aiTuning === "object") {
+    const t = next.aiTuning;
+    const at = { ...sanitized.aiTuning };
+    if (typeof t.model === "string") at.model = t.model.trim().slice(0, 128);
+    if (clampedInt(t.batchSize, 1, 50) !== null) at.batchSize = clampedInt(t.batchSize, 1, 50);
+    if (clampedInt(t.pauseBetweenBatchesMs, 0, 30000) !== null) at.pauseBetweenBatchesMs = clampedInt(t.pauseBetweenBatchesMs, 0, 30000);
+    if (clampedInt(t.maxOutputTokens, 100, 16000) !== null) at.maxOutputTokens = clampedInt(t.maxOutputTokens, 100, 16000);
+    if (clampedFloat(t.temperature, 0, 2) !== null) at.temperature = clampedFloat(t.temperature, 0, 2);
+    if (typeof t.ollamaBaseUrl === "string") at.ollamaBaseUrl = t.ollamaBaseUrl.trim().slice(0, 256);
+    if (typeof t.keepAlive === "string") at.keepAlive = t.keepAlive.trim().slice(0, 32);
+    sanitized.aiTuning = at;
+  }
+
+  if (next.resourceTuning && typeof next.resourceTuning === "object") {
+    const t = next.resourceTuning;
+    const rt = { ...sanitized.resourceTuning };
+    if (clampedInt(t.warningFreeMemoryMb, 64, 32000) !== null) rt.warningFreeMemoryMb = clampedInt(t.warningFreeMemoryMb, 64, 32000);
+    if (clampedInt(t.minFreeMemoryMb, 32, 32000) !== null) rt.minFreeMemoryMb = clampedInt(t.minFreeMemoryMb, 32, 32000);
+    if (clampedInt(t.warningProcessRssMb, 64, 32000) !== null) rt.warningProcessRssMb = clampedInt(t.warningProcessRssMb, 64, 32000);
+    if (clampedInt(t.maxProcessRssMb, 128, 32000) !== null) rt.maxProcessRssMb = clampedInt(t.maxProcessRssMb, 128, 32000);
+    sanitized.resourceTuning = rt;
+  }
+
+  if (next.themeOverrides && typeof next.themeOverrides === "object") {
+    const t = next.themeOverrides;
+    const to = { ...sanitized.themeOverrides };
+    if (t.accentPrimary === "" || HEX_COLOR_RE.test(t.accentPrimary)) to.accentPrimary = t.accentPrimary;
+    if (t.accentSecondary === "" || HEX_COLOR_RE.test(t.accentSecondary)) to.accentSecondary = t.accentSecondary;
+    if (t.accentHighlight === "" || HEX_COLOR_RE.test(t.accentHighlight)) to.accentHighlight = t.accentHighlight;
+    sanitized.themeOverrides = to;
+  }
+
+  if (next.domainHueOverrides && typeof next.domainHueOverrides === "object") {
+    const cleaned = {};
+    for (const [domain, hue] of Object.entries(next.domainHueOverrides)) {
+      const numeric = clampedInt(hue, 0, 360);
+      if (typeof domain === "string" && domain.length <= 32 && numeric !== null) {
+        cleaned[domain] = numeric;
+      }
+    }
+    sanitized.domainHueOverrides = cleaned;
+  }
+
+  if (Array.isArray(next.disabledSources)) {
+    sanitized.disabledSources = [...new Set(
+      next.disabledSources.filter((name) => typeof name === "string").map((name) => name.slice(0, 128)),
+    )].slice(0, 200);
   }
 
   savePreference(db, "settings", sanitized);

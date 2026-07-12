@@ -102,6 +102,11 @@ const sources = [
   { name: "Science Daily Tech", url: "https://www.sciencedaily.com/rss/computers_math/technology.xml", category: "General" },
 ];
 
+function listSources() {
+  return sources.map((source) => ({ name: source.name, category: source.category }));
+}
+
 module.exports = {
   sources,
+  listSources,
 };

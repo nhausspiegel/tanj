@@ -278,14 +278,14 @@ function normalizeItem(source, item, preferences) {
   return article;
 }
 
-async function fetchFeed(source, preferences, { maxFeedBytes = MAX_FEED_BYTES } = {}) {
+async function fetchFeed(source, preferences, { maxFeedBytes = MAX_FEED_BYTES, feedTimeoutMs = 15000 } = {}) {
   try {
     const response = await fetch(source.url, {
       headers: {
         Accept: "application/rss+xml, application/xml, text/xml",
         "User-Agent": "news-agg-desktop/2.0",
       },
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(feedTimeoutMs),
     });
 
     if (!response.ok) {
@@ -327,6 +327,7 @@ async function fetchAllFeeds(preferences, {
   sourceList = sources,
   maxConcurrentFeeds = MAX_CONCURRENT_FEEDS,
   maxFeedBytes = MAX_FEED_BYTES,
+  feedTimeoutMs = 15000,
   batchPauseMs = FEED_BATCH_PAUSE_MS,
   memoryCooldownPauseMs = MEMORY_COOLDOWN_PAUSE_MS,
   resourceMonitor,
@@ -363,7 +364,7 @@ async function fetchAllFeeds(preferences, {
     const batch = sourceList.slice(index, index + batchConcurrency);
     results.push(
       ...(await Promise.all(
-        batch.map((source) => fetchFeedFn(source, preferences, { maxFeedBytes })),
+        batch.map((source) => fetchFeedFn(source, preferences, { maxFeedBytes, feedTimeoutMs })),
       )),
     );
 
@@ -395,9 +396,9 @@ function createRefreshService({
   fullTextEnricher = enrichArticlesWithFullText,
   aiEnricher = enrichArticlesWithAI,
   resetAiAvailability = resetAiStatus,
-  maxExtractionArticles = MAX_EXTRACTION_ARTICLES,
+  maxExtractionArticles: maxExtractionArticlesOverride,
   getPowerState,
-  resourceMonitor = createResourceMonitor(),
+  resourceMonitor: resourceMonitorOverride,
   shouldSuspendRefresh = (_options, powerState) => Boolean(powerState?.onBattery),
 } = {}) {
   let runningPromise = null;
@@ -419,6 +420,11 @@ function createRefreshService({
       const trigger = options.manual ? "manual" : options.scheduled ? "scheduled" : "launch";
       const powerState = getPowerState?.() ?? { source: "unknown", onBattery: false };
       const startedAt = new Date().toISOString();
+      // Loaded fresh each run so dev-mode tuning changes take effect on the
+      // very next refresh, no restart needed. resourceMonitorOverride (used
+      // by tests to inject deterministic memory state) always wins.
+      const preferences = getPreferences(db);
+      const resourceMonitor = resourceMonitorOverride ?? createResourceMonitor(preferences.resourceTuning);
 
       // shouldSuspendRefresh may return a boolean (legacy: battery) or a
       // reason string ("battery" | "idle").
@@ -506,8 +512,17 @@ function createRefreshService({
       // Reset AI status so it re-checks availability each cycle.
       resetAiAvailability();
 
-      const preferences = getPreferences(db);
+      const refreshTuning = preferences.refreshTuning;
+      const disabledSources = new Set(preferences.disabledSources ?? []);
+      const sourceList = disabledSources.size
+        ? sources.filter((source) => !disabledSources.has(source.name))
+        : sources;
       const settled = await (fetchAllFeedsOverride ?? fetchAllFeeds)(preferences, {
+        sourceList,
+        maxConcurrentFeeds: refreshTuning.maxConcurrentFeeds,
+        maxFeedBytes: refreshTuning.maxFeedBytes,
+        feedTimeoutMs: refreshTuning.feedTimeoutMs,
+        batchPauseMs: refreshTuning.feedBatchPauseMs,
         resourceMonitor,
       });
       memoryBreaks += Number(settled.memoryBreaks ?? 0);
@@ -539,12 +554,15 @@ function createRefreshService({
       const skippedKnown = fetched.length - freshArticles.length;
       let articles = freshArticles
         .sort((left, right) => new Date(right.published_at).getTime() - new Date(left.published_at).getTime())
-        .slice(0, MAX_TOTAL_ARTICLES);
+        .slice(0, refreshTuning.maxTotalArticles ?? MAX_TOTAL_ARTICLES);
 
       // Full-text extraction on top articles.
       const sortedForExtraction = [...articles]
         .sort((a, b) => (b.importance - a.importance) || (new Date(b.published_at).getTime() - new Date(a.published_at).getTime()));
-      const extractionLimit = Math.max(0, Number(maxExtractionArticles) || 0);
+      const extractionLimit = Math.max(
+        0,
+        Number(maxExtractionArticlesOverride ?? refreshTuning.maxExtractionArticles) || 0,
+      );
       const toExtract = sortedForExtraction.slice(0, extractionLimit);
       const skipExtract = sortedForExtraction.slice(extractionLimit);
 
@@ -573,6 +591,7 @@ function createRefreshService({
           articles = await aiEnricher(articles, {
             provider: preferences.aiProvider,
             apiKey: preferences.aiApiKey,
+            tuning: preferences.aiTuning,
             onBatch: (batchArticles) => {
               upsertArticles(db, batchArticles);
               processedCount += batchArticles.length;

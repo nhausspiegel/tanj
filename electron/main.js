@@ -24,6 +24,7 @@ const {
   saveScanState,
   saveUserFeedback,
 } = require("./repositories/preferencesRepo");
+const { listSources } = require("./services/sources");
 const {
   getBrief,
   getInsights,
@@ -318,6 +319,7 @@ function createMenu() {
         process.platform === "darwin" ? { role: "close" } : { role: "quit" },
       ],
     },
+    { role: "editMenu" },
     {
       label: "View",
       submenu: [
@@ -471,6 +473,8 @@ ipcMain.handle("desktop:data:getPreferences", () => ({
   lastRefreshError: getLastRefreshError(desktopDb),
   lastRefreshStats: getLastRefreshStats(desktopDb),
 }));
+
+ipcMain.handle("desktop:data:getSources", () => listSources());
 
 ipcMain.handle("desktop:data:savePreferences", (_event, payload = {}) => {
   try {

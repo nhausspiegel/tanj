@@ -60,6 +60,43 @@ declare global {
     memoryBreaks?: number;
   };
 
+  type DesktopRefreshTuning = {
+    maxConcurrentFeeds: number;
+    feedBatchPauseMs: number;
+    maxFeedBytes: number;
+    feedTimeoutMs: number;
+    maxExtractionArticles: number;
+    maxTotalArticles: number;
+  };
+
+  type DesktopAiTuning = {
+    model: string;
+    batchSize: number;
+    pauseBetweenBatchesMs: number;
+    maxOutputTokens: number;
+    temperature: number;
+    ollamaBaseUrl: string;
+    keepAlive: string;
+  };
+
+  type DesktopResourceTuning = {
+    warningFreeMemoryMb: number;
+    minFreeMemoryMb: number;
+    warningProcessRssMb: number;
+    maxProcessRssMb: number;
+  };
+
+  type DesktopThemeOverrides = {
+    accentPrimary: string;
+    accentSecondary: string;
+    accentHighlight: string;
+  };
+
+  type DesktopSourceInfo = {
+    name: string;
+    category: string;
+  };
+
   type DesktopPreferences = {
     refreshIntervalMinutes: number;
     notificationsEnabled: boolean;
@@ -76,6 +113,13 @@ declare global {
       tagAdjustments: Record<string, number>;
       sampleCount: number;
     };
+    devMode: boolean;
+    refreshTuning: DesktopRefreshTuning;
+    aiTuning: DesktopAiTuning;
+    resourceTuning: DesktopResourceTuning;
+    themeOverrides: DesktopThemeOverrides;
+    domainHueOverrides: Record<string, number>;
+    disabledSources: string[];
   };
 
   type DesktopScanState = {
@@ -239,6 +283,7 @@ declare global {
           preferences?: DesktopPreferences;
           error?: string;
         }>;
+        getSources: () => Promise<DesktopSourceInfo[]>;
       };
       jobs: {
         runRefreshNow: () => Promise<DesktopOperationResult>;

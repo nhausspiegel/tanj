@@ -39,6 +39,10 @@ function pickObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? value : {};
 }
 
+function isPlainObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function sanitizeArticleFilters(input) {
   const src = pickObject(input);
   return {
@@ -255,9 +259,22 @@ function sanitizePreferences(input) {
     personalizedThreshold: clampNumber(src.personalizedThreshold, { min: 0, max: 10 }),
     notificationsEnabled:
       typeof src.notificationsEnabled === "boolean" ? src.notificationsEnabled : undefined,
+    notificationImportanceThreshold: clampNumber(src.notificationImportanceThreshold, { min: 1, max: 5 }),
+    personalizedDefault:
+      typeof src.personalizedDefault === "boolean" ? src.personalizedDefault : undefined,
     sources: clampStringArray(src.sources, 500),
     aiApiKey: sanitizeApiKey(src.aiApiKey),
     aiProvider: sanitizeAiProvider(src.aiProvider),
+    // Dev-mode tuning: this layer only passes through well-shaped objects/
+    // arrays; the actual per-field numeric/hex clamping happens in
+    // preferencesRepo.savePreferences, which is the source of truth.
+    devMode: typeof src.devMode === "boolean" ? src.devMode : undefined,
+    refreshTuning: isPlainObject(src.refreshTuning) ? src.refreshTuning : undefined,
+    aiTuning: isPlainObject(src.aiTuning) ? src.aiTuning : undefined,
+    resourceTuning: isPlainObject(src.resourceTuning) ? src.resourceTuning : undefined,
+    themeOverrides: isPlainObject(src.themeOverrides) ? src.themeOverrides : undefined,
+    domainHueOverrides: isPlainObject(src.domainHueOverrides) ? src.domainHueOverrides : undefined,
+    disabledSources: Array.isArray(src.disabledSources) ? src.disabledSources : undefined,
   };
 }
 

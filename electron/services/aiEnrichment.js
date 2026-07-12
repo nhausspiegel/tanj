@@ -22,6 +22,23 @@ const KEEP_MODEL_LOADED = process.env.AI_KEEP_MODEL_LOADED === "1";
 const BATCH_SIZE = 6;
 const PAUSE_BETWEEN_BATCHES_MS = 300;
 
+// Dev-mode tuning (Settings) overrides these env-var/hardcoded defaults at
+// call time — "" / undefined fields fall through to the default above.
+function resolveTuning(tuning = {}) {
+  return {
+    ollamaBaseUrl: tuning.ollamaBaseUrl || OLLAMA_BASE_URL,
+    model: tuning.model || AI_MODEL,
+    batchSize: Number(tuning.batchSize) > 0 ? Number(tuning.batchSize) : BATCH_SIZE,
+    pauseBetweenBatchesMs:
+      Number.isFinite(Number(tuning.pauseBetweenBatchesMs))
+        ? Number(tuning.pauseBetweenBatchesMs)
+        : PAUSE_BETWEEN_BATCHES_MS,
+    maxOutputTokens: Number(tuning.maxOutputTokens) > 0 ? Number(tuning.maxOutputTokens) : 2000,
+    temperature: Number.isFinite(Number(tuning.temperature)) ? Number(tuning.temperature) : 0,
+    keepAlive: tuning.keepAlive || AI_KEEP_ALIVE,
+  };
+}
+
 const ARTICLE_DOMAINS = [
   "AIUse", "LLM", "AIInfra", "Semis", "Cloud", "Security", "Consumer", "Bio",
   "Climate", "Crypto", "Policy", "Space", "Robotics",
@@ -153,9 +170,9 @@ function sleep(ms) {
 
 let aiAvailable = null; // null = unknown, true/false = tested
 
-async function checkAiAvailability() {
+async function checkAiAvailability(ollamaBaseUrl = OLLAMA_BASE_URL) {
   try {
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
+    const response = await fetch(`${ollamaBaseUrl}/api/tags`, {
       signal: AbortSignal.timeout(5000),
     });
     aiAvailable = response.ok;
@@ -165,9 +182,9 @@ async function checkAiAvailability() {
   return aiAvailable;
 }
 
-async function callOllama(articles) {
+async function callOllama(articles, tuning) {
   const body = {
-    model: AI_MODEL,
+    model: tuning.model,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: buildUserPrompt(articles) },
@@ -179,16 +196,16 @@ async function callOllama(articles) {
     think: false,
     format: "json",
     options: {
-      temperature: 0,
-      num_predict: 2000,
+      temperature: tuning.temperature,
+      num_predict: tuning.maxOutputTokens,
     },
   };
 
-  if (AI_KEEP_ALIVE) {
-    body.keep_alive = AI_KEEP_ALIVE;
+  if (tuning.keepAlive) {
+    body.keep_alive = tuning.keepAlive;
   }
 
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+  const response = await fetch(`${tuning.ollamaBaseUrl}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -206,7 +223,7 @@ async function callOllama(articles) {
   return extractJson(payload.message?.content ?? "");
 }
 
-async function callOpenAI(articles, apiKey) {
+async function callOpenAI(articles, apiKey, tuning) {
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -220,7 +237,7 @@ async function callOpenAI(articles, apiKey) {
         { role: "user", content: buildUserPrompt(articles) },
       ],
       response_format: { type: "json_object" },
-      temperature: 0,
+      temperature: tuning.temperature,
     }),
     signal: AbortSignal.timeout(AI_TIMEOUT_MS),
   });
@@ -234,7 +251,7 @@ async function callOpenAI(articles, apiKey) {
   return extractJson(payload.choices?.[0]?.message?.content ?? "");
 }
 
-async function callAnthropic(articles, apiKey) {
+async function callAnthropic(articles, apiKey, tuning) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -244,10 +261,10 @@ async function callAnthropic(articles, apiKey) {
     },
     body: JSON.stringify({
       model: ANTHROPIC_MODEL,
-      max_tokens: 2000,
+      max_tokens: tuning.maxOutputTokens,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: buildUserPrompt(articles) }],
-      temperature: 0,
+      temperature: tuning.temperature,
     }),
     signal: AbortSignal.timeout(AI_TIMEOUT_MS),
   });
@@ -271,16 +288,16 @@ async function callAnthropic(articles, apiKey) {
  * done. Per Ollama's API, empty messages + keep_alive: 0 unloads the model.
  * Best-effort: failures are ignored.
  */
-async function unloadModel() {
+async function unloadModel(tuning) {
   try {
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+    const response = await fetch(`${tuning.ollamaBaseUrl}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: AI_MODEL, messages: [], keep_alive: 0 }),
+      body: JSON.stringify({ model: tuning.model, messages: [], keep_alive: 0 }),
       signal: AbortSignal.timeout(5000),
     });
     if (response.ok) {
-      console.log(`[ai-enrich] Requested unload of ${AI_MODEL}`);
+      console.log(`[ai-enrich] Requested unload of ${tuning.model}`);
     }
   } catch {
     // Best-effort only.
@@ -292,6 +309,7 @@ async function unloadModel() {
  * Modifies articles in-place and returns them.
  */
 async function enrichArticlesWithAI(articles, options = {}) {
+  const tuning = resolveTuning(options.tuning);
   const provider = options.provider || (process.env.OPENAI_API_KEY && "openai") ||
     (process.env.ANTHROPIC_API_KEY && "anthropic") || null;
   const apiKey =
@@ -303,7 +321,7 @@ async function enrichArticlesWithAI(articles, options = {}) {
   if (!useHosted) {
     // Only probe/require local Ollama when there's no hosted key (BYOK).
     if (aiAvailable === null) {
-      await checkAiAvailability();
+      await checkAiAvailability(tuning.ollamaBaseUrl);
     }
 
     if (!aiAvailable) {
@@ -313,16 +331,16 @@ async function enrichArticlesWithAI(articles, options = {}) {
   }
 
   const callModel = useHosted
-    ? (batch) => (provider === "anthropic" ? callAnthropic(batch, apiKey) : callOpenAI(batch, apiKey))
-    : (batch) => callOllama(batch);
+    ? (batch) => (provider === "anthropic" ? callAnthropic(batch, apiKey, tuning) : callOpenAI(batch, apiKey, tuning))
+    : (batch) => callOllama(batch, tuning);
 
   const results = [...articles];
   let aiSuccessCount = 0;
   let aiFailCount = 0;
   let attemptedOllama = false;
 
-  for (let i = 0; i < results.length; i += BATCH_SIZE) {
-    const batch = results.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < results.length; i += tuning.batchSize) {
+    const batch = results.slice(i, i + tuning.batchSize);
 
     try {
       attemptedOllama = attemptedOllama || !useHosted;
@@ -376,19 +394,19 @@ async function enrichArticlesWithAI(articles, options = {}) {
     }
 
     if (typeof options.onBatch === "function") {
-      options.onBatch(results.slice(i, i + BATCH_SIZE), {
-        index: i / BATCH_SIZE,
-        batchCount: Math.ceil(results.length / BATCH_SIZE),
+      options.onBatch(results.slice(i, i + tuning.batchSize), {
+        index: i / tuning.batchSize,
+        batchCount: Math.ceil(results.length / tuning.batchSize),
       });
     }
 
-    if (i + BATCH_SIZE < results.length) {
-      await sleep(PAUSE_BETWEEN_BATCHES_MS);
+    if (i + tuning.batchSize < results.length) {
+      await sleep(tuning.pauseBetweenBatchesMs);
     }
   }
 
   if (attemptedOllama && !KEEP_MODEL_LOADED) {
-    await unloadModel();
+    await unloadModel(tuning);
   }
 
   console.log(`[ai-enrich] Enriched ${aiSuccessCount} articles via AI, ${aiFailCount} fell back to heuristics`);

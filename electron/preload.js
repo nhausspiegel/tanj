@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld("desktop", {
     clearLearningProfile: () => ipcRenderer.invoke("desktop:data:clearLearningProfile"),
     getPreferences: () => ipcRenderer.invoke("desktop:data:getPreferences"),
     savePreferences: (payload) => ipcRenderer.invoke("desktop:data:savePreferences", payload),
+    getSources: () => ipcRenderer.invoke("desktop:data:getSources"),
   },
   jobs: {
     runRefreshNow: () => ipcRenderer.invoke("desktop:jobs:runRefreshNow"),
