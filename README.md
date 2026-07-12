@@ -14,6 +14,35 @@ On Apple Silicon Macs, make sure your Node itself is an arm64 build (`node -p
 process.arch` should print `arm64`); an x86_64 Node produces an x86_64
 `better-sqlite3` that the arm64 Electron cannot load.
 
+## AI Summaries (optional)
+
+The desktop app works with no AI setup at all — without one, article
+summaries fall back to the raw feed text. To get real plain-language
+summaries, pick one:
+
+**Option A — free, local, no account (recommended to start):**
+
+```bash
+ollama pull qwen2.5-coder:7b
+```
+
+That's it — no API key needed. Requires [Ollama](https://ollama.com) running
+locally (`ollama serve`). One-time ~4.7GB download. On a mid-range machine
+this runs at roughly 20 tokens/sec, meaning a batch of new articles
+processes in the background in a couple of minutes without leaving your
+computer or costing anything, ever.
+
+**Option B — a hosted API key (OpenAI or Anthropic):** open the app's
+**Settings** panel (bottom of the sidebar), pick a provider, and paste in
+your own API key. This costs a small amount per use (a fraction of a cent
+per article on the cheapest models) billed to your own account — useful if
+you don't want to run a local model, or want faster/higher-quality
+summaries. The key never leaves your machine except to call that
+provider's API directly.
+
+If neither is set up, the app still works — it just shows the unprocessed
+feed text instead of an AI-written summary.
+
 ## Electron Phase 1
 
 Phase 1 adds a thin Electron desktop shell around the existing app without rebuilding the React/Next.js UI.
