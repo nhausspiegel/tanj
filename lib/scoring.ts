@@ -93,9 +93,10 @@ export function noveltyScoreFromOverlap(
 
   const tagSet = new Set(tags);
   const similar = previous.some((prev) => {
-    const overlap = prev.tags.filter((tag) => tagSet.has(tag)).length;
-    const overlapRatio = overlap / Math.max(new Set([...prev.tags, ...tags]).size, 1);
-    return overlapRatio >= 0.6 || prev.headline.toLowerCase() === headline.toLowerCase();
+    const prevTags = prev.tags ?? [];
+    const overlap = prevTags.filter((tag) => tagSet.has(tag)).length;
+    const overlapRatio = overlap / Math.max(new Set([...prevTags, ...tags]).size, 1);
+    return overlapRatio >= 0.6 || (prev.headline ?? "").toLowerCase() === headline.toLowerCase();
   });
 
   return similar ? 0.25 : 1;

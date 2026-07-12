@@ -133,9 +133,9 @@ export function usePulseData(): PulseData {
       memoryRes.status === "fulfilled" && memoryRes.value
         ? Object.entries(memoryRes.value.latestSnapshots).map(([id, s]) => ({
             id,
-            tags: s.tags,
-            headline: s.headline,
-            sourceCount: s.sourceCount,
+            tags: s.tags ?? [],
+            headline: s.headline ?? "",
+            sourceCount: s.sourceCount ?? 0,
             snapshotAt: s.snapshotAt,
           }))
         : [];
@@ -202,7 +202,9 @@ export function usePulseData(): PulseData {
     loadingRef.current = true;
 
     loadData()
-      .catch(() => {})
+      .catch((error) => {
+        console.error("PULSE loadData failed, showing seed data", error);
+      })
       .finally(() => {
         if (!cancelled) loadingRef.current = false;
       });
