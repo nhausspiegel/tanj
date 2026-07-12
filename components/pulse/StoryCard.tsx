@@ -19,6 +19,13 @@ const SCORE_TERMS: Array<{ key: keyof ArticleScoreBreakdown; label: string }> = 
   { key: "novelty", label: "Freshness" },
 ];
 
+// Red (low fill) -> green (high fill), smooth continuum via HSL hue
+// (0deg = red, 120deg = green), not a hard threshold swap between colors.
+function fillColor(pct: number): string {
+  const hue = (Math.max(0, Math.min(100, pct)) / 100) * 120;
+  return `hsl(${hue}, 72%, 50%)`;
+}
+
 function scoreBar(label: string, value: number, max: number) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   return (
@@ -41,13 +48,13 @@ function scoreBar(label: string, value: number, max: number) {
             height: "100%",
             width: `${pct}%`,
             borderRadius: 3,
-            background: "#4AD07A",
+            background: fillColor(pct),
           }}
         />
       </span>
       <span
         style={{
-          width: 40,
+          width: 34,
           fontSize: 10,
           fontWeight: 700,
           color: "#F7F3E6",
@@ -55,7 +62,7 @@ function scoreBar(label: string, value: number, max: number) {
           flexShrink: 0,
         }}
       >
-        {value.toFixed(1)}/{max}
+        {Math.round(pct)}%
       </span>
     </div>
   );

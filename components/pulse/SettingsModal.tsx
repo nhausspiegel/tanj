@@ -34,6 +34,7 @@ const DEFAULT_AI_TUNING: DesktopAiTuning = {
   temperature: 0,
   ollamaBaseUrl: "",
   keepAlive: "",
+  timeoutMs: 45000,
 };
 const DEFAULT_RESOURCE_TUNING: DesktopResourceTuning = {
   warningFreeMemoryMb: 768,
@@ -107,6 +108,36 @@ function NumberField({
         style={{ ...fieldInput, fontVariantNumeric: "tabular-nums" }}
       />
     </label>
+  );
+}
+
+// Wraps NumberField for *Ms tuning fields: value/onChange work in ms (the
+// storage unit every timing field in the backend uses), display is seconds
+// so the user isn't hand-converting "45000" in their head.
+function SecondsField({
+  label,
+  valueMs,
+  onChangeMs,
+  minMs,
+  maxMs,
+  stepSeconds = 0.1,
+}: {
+  label: string;
+  valueMs: number;
+  onChangeMs: (valueMs: number) => void;
+  minMs?: number;
+  maxMs?: number;
+  stepSeconds?: number;
+}) {
+  return (
+    <NumberField
+      label={label}
+      value={Number.isFinite(valueMs) ? valueMs / 1000 : valueMs}
+      min={minMs !== undefined ? minMs / 1000 : undefined}
+      max={maxMs !== undefined ? maxMs / 1000 : undefined}
+      step={stepSeconds}
+      onChange={(seconds) => onChangeMs(Math.round(seconds * 1000))}
+    />
   );
 }
 
@@ -551,19 +582,19 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                   max={12}
                   onChange={(v) => setRefreshTuning((t) => ({ ...t, maxConcurrentFeeds: v }))}
                 />
-                <NumberField
-                  label="Pause between batches (ms)"
-                  value={refreshTuning.feedBatchPauseMs}
-                  min={0}
-                  step={50}
-                  onChange={(v) => setRefreshTuning((t) => ({ ...t, feedBatchPauseMs: v }))}
+                <SecondsField
+                  label="Pause between batches (sec)"
+                  valueMs={refreshTuning.feedBatchPauseMs}
+                  minMs={0}
+                  stepSeconds={0.05}
+                  onChangeMs={(v) => setRefreshTuning((t) => ({ ...t, feedBatchPauseMs: v }))}
                 />
-                <NumberField
-                  label="Per-feed timeout (ms)"
-                  value={refreshTuning.feedTimeoutMs}
-                  min={1000}
-                  step={1000}
-                  onChange={(v) => setRefreshTuning((t) => ({ ...t, feedTimeoutMs: v }))}
+                <SecondsField
+                  label="Per-feed timeout (sec)"
+                  valueMs={refreshTuning.feedTimeoutMs}
+                  minMs={1000}
+                  stepSeconds={1}
+                  onChangeMs={(v) => setRefreshTuning((t) => ({ ...t, feedTimeoutMs: v }))}
                 />
                 <NumberField
                   label="Max feed size (bytes)"
@@ -609,12 +640,20 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                   max={50}
                   onChange={(v) => setAiTuning((t) => ({ ...t, batchSize: v }))}
                 />
-                <NumberField
-                  label="Pause between batches (ms)"
-                  value={aiTuning.pauseBetweenBatchesMs}
-                  min={0}
-                  step={50}
-                  onChange={(v) => setAiTuning((t) => ({ ...t, pauseBetweenBatchesMs: v }))}
+                <SecondsField
+                  label="Pause between batches (sec)"
+                  valueMs={aiTuning.pauseBetweenBatchesMs}
+                  minMs={0}
+                  stepSeconds={0.05}
+                  onChangeMs={(v) => setAiTuning((t) => ({ ...t, pauseBetweenBatchesMs: v }))}
+                />
+                <SecondsField
+                  label="Batch timeout (sec)"
+                  valueMs={aiTuning.timeoutMs}
+                  minMs={5000}
+                  maxMs={300000}
+                  stepSeconds={5}
+                  onChangeMs={(v) => setAiTuning((t) => ({ ...t, timeoutMs: v }))}
                 />
                 <NumberField
                   label="Max output tokens"
@@ -642,24 +681,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
               <div style={sectionLabel}>Resource thresholds</div>
               <p style={{ margin: "-4px 0 10px", fontSize: 11.5, lineHeight: 1.5, color: "#66646f" }}>
-                Controls when refresh throttles for memory pressure. Raise these if refreshes are
-                throttling on a machine that isn't actually under real memory pressure.
+                Controls when refresh throttles for memory pressure, based on this app's own
+                memory use (not OS-reported free memory, which reads unreliably low on some
+                platforms).
               </p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <NumberField
-                  label="Warning free memory (MB)"
-                  value={resourceTuning.warningFreeMemoryMb}
-                  min={64}
-                  step={64}
-                  onChange={(v) => setResourceTuning((t) => ({ ...t, warningFreeMemoryMb: v }))}
-                />
-                <NumberField
-                  label="Min free memory (MB)"
-                  value={resourceTuning.minFreeMemoryMb}
-                  min={32}
-                  step={32}
-                  onChange={(v) => setResourceTuning((t) => ({ ...t, minFreeMemoryMb: v }))}
-                />
                 <NumberField
                   label="Warning process RSS (MB)"
                   value={resourceTuning.warningProcessRssMb}

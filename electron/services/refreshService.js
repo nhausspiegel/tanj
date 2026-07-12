@@ -578,6 +578,14 @@ function createRefreshService({
 
       // AI enrichment for domain, tags, importance, and summary. Skipped
       // entirely when nothing is new so a no-op refresh never loads the model.
+      // Articles already written to the DB via the onBatch callback below
+      // (as AI enrichment lands each batch) so the final save doesn't have
+      // to re-upsert them — upsertArticle does a delete+reinsert of every
+      // tag row per call, so re-running it over the same articles is pure
+      // waste on top of what onBatch already persisted.
+      const upsertedIds = new Set();
+      let batchUpsertResult = { inserted: 0, updated: 0, ids: [], insertedIds: [] };
+
       if (articles.length && aiEnricher) {
         try {
           let processedCount = 0;
@@ -593,7 +601,12 @@ function createRefreshService({
             apiKey: preferences.aiApiKey,
             tuning: preferences.aiTuning,
             onBatch: (batchArticles) => {
-              upsertArticles(db, batchArticles);
+              const batchResult = upsertArticles(db, batchArticles);
+              for (const article of batchArticles) upsertedIds.add(article.id);
+              batchUpsertResult.inserted += batchResult.inserted;
+              batchUpsertResult.updated += batchResult.updated;
+              batchUpsertResult.ids.push(...batchResult.ids);
+              batchUpsertResult.insertedIds.push(...batchResult.insertedIds);
               processedCount += batchArticles.length;
               if (onProgress) {
                 try {
@@ -610,8 +623,17 @@ function createRefreshService({
         }
       }
 
-      // Save and generate patterns/briefs.
-      const result = upsertArticles(db, articles);
+      // Save and generate patterns/briefs. Only the articles not already
+      // persisted by onBatch above (e.g. AI enrichment wasn't run, or was
+      // interrupted before covering every article) need writing here.
+      const remainingArticles = articles.filter((article) => !upsertedIds.has(article.id));
+      const remainingUpsertResult = upsertArticles(db, remainingArticles);
+      const result = {
+        inserted: batchUpsertResult.inserted + remainingUpsertResult.inserted,
+        updated: batchUpsertResult.updated + remainingUpsertResult.updated,
+        ids: [...batchUpsertResult.ids, ...remainingUpsertResult.ids],
+        insertedIds: [...batchUpsertResult.insertedIds, ...remainingUpsertResult.insertedIds],
+      };
       const latestArticles = getArticles(db, { limit: 500 });
       const patterns = getPatterns(db, { limit: 500 });
       const week = formatWeek(new Date());

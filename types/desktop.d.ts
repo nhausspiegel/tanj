@@ -77,6 +77,7 @@ declare global {
     temperature: number;
     ollamaBaseUrl: string;
     keepAlive: string;
+    timeoutMs: number;
   };
 
   type DesktopResourceTuning = {

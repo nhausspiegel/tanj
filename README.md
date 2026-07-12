@@ -2,6 +2,23 @@
 
 Local-first tech intelligence dashboard built with Next.js.
 
+## Current UI: PULSE
+
+The renderer's only mounted surface is **PULSE**, a dark, Netflix-row-style
+dashboard (`components/pulse/*`, entry point `app/page.tsx`). Dashboard rows
+show one card per article (no merging); Trends shows one card per
+cross-outlet merged story/cluster — these are intentionally different data
+models (`lib/pulse.ts`: `articlesToStories` vs `clusterArticlesToStories`).
+Cards carry a relevance/momentum score (recency + AI importance + topic
+alignment + novelty for Dashboard; corroboration + velocity + recency +
+importance for Trends), a heart ("My Likes") / X (dismiss) action pair, and
+real thumbnails pulled from each source's RSS feed when available.
+
+The original `components/CommandCenterClient.tsx` UI still exists in the
+repo but is **dormant** — no route mounts it. It's not deleted in case any
+of its data-fetching patterns are still useful reference, but treat it as
+legacy, not a second live surface.
+
 ## Requirements
 
 Use a **Node LTS release (20 or 22)**. Newer "Current" releases (e.g. Node 26)
@@ -81,8 +98,14 @@ This starts the Next.js dev server on `http://127.0.0.1:3000`, waits for it, the
 The existing web app can still run separately:
 
 ```bash
-npm run dev
+npm run dev:web
 ```
+
+`npm run dev` (plain, HTTPS-enabled via `--experimental-https`) and `npm run
+dev:web:desktop` (web renderer with `ELECTRON_RENDERER_MODE=desktop`, useful
+for testing desktop-only UI branches in a browser) also exist as variants —
+`dev:web` is the one that matches this section's "run the web app alone"
+description.
 
 ### Package And Make
 
@@ -97,19 +120,24 @@ In development, Electron loads the local Next.js dev server.
 
 In packaged mode, Phase 1 tries to load `out/index.html` if a future static export exists. If it does not, it can load `NEXT_APP_URL` when that value points to `localhost` or `127.0.0.1`. Fully bundled offline Next.js serving is intentionally deferred.
 
-### Deferred To Phase 2
+### Deferred To Phase 2 — current status
 
-- Local database
-- Background ingestion
-- Notifications
-- Offline cache expansion
-- Richer file import/export
-- Fully bundled local Next.js runtime or static export strategy
-- Auto-updater and installer polish
+- Local database — shipped
+- Background ingestion — shipped
+- Notifications — shipped
+- Offline cache expansion — shipped
+- Richer file import/export — shipped
+- Fully bundled local Next.js runtime or static export strategy —
+  attempted (a GitHub Pages static-hosted build was built), then
+  **explicitly reverted**: the owner decided a hosted web version wasn't
+  worth the tradeoff against the desktop Electron app's real SQLite, real
+  RSS ingestion, and real local AI enrichment. Not on the roadmap unless
+  revisited.
+- Auto-updater and installer polish — still not started
 
 ## Electron Phase 2
 
-Phase 2 turns the desktop shell into a local-first app while preserving the existing command center UI. The renderer still runs as a secure React/Next.js surface; filesystem access, SQLite, RSS refresh jobs, import/export, and notifications live in Electron main-process modules.
+Phase 2 turns the desktop shell into a local-first app while preserving the existing command center UI (written when the command center was the live UI — PULSE has since replaced it as the mounted renderer, see "Current UI: PULSE" above; the main-process/data layer described below is unchanged and still backs PULSE). The renderer still runs as a secure React/Next.js surface; filesystem access, SQLite, RSS refresh jobs, import/export, and notifications live in Electron main-process modules.
 
 ### Local DB Design
 
@@ -143,7 +171,7 @@ To reset local desktop data during development, quit the app and remove `news-ag
 
 `electron/services/scheduler.js` starts a refresh shortly after app launch and then repeats on the configured interval while the app is open. Refresh jobs are guarded so overlapping runs are skipped. Manual refresh is available from:
 
-- Command center desktop controls
+- PULSE's sidebar refresh control (shows live progress and elapsed time via `jobs.onRefreshProgress`)
 - App menu: `Refresh Now`
 
 If network refresh fails, the renderer continues reading cached SQLite data and shows a subtle cached-data status.
@@ -167,12 +195,11 @@ Imports validate the selected JSON file, merge article data through the reposito
 
 Export/import are available from:
 
-- Command center desktop controls
-- App menu: `Export Data` and `Import Data`
+- App menu: `Export Data` and `Import Data` (PULSE's own UI doesn't currently surface import/export controls — only the app menu does)
 
 ### Offline Mode
 
-The command center now checks `window.desktop` and, when running inside Electron, loads articles, patterns, briefs, insights, feedback, preferences, and last-refresh state from SQLite through the preload bridge. Live network access is not required for the UI to render cached data.
+PULSE checks `window.desktop` and, when running inside Electron, loads articles, patterns, briefs, insights, feedback, preferences, and last-refresh state from SQLite through the preload bridge. Live network access is not required for the UI to render cached data.
 
 To test offline behavior, launch the desktop app once online so SQLite has data, disconnect the network, then relaunch or reload. The dashboard should load from local cache and report cached/offline refresh status if a refresh fails.
 
@@ -193,15 +220,22 @@ window.desktop = {
     getInsights,
     getLongTermTrends,
     getImportanceFeedback,
+    getUserFeedback,
+    getAffinities,
+    getRules,
+    saveUserFeedback,
     saveImportanceFeedback,
     clearLearningProfile,
     getPreferences,
-    savePreferences
+    savePreferences,
+    getSources
   },
   jobs: {
     runRefreshNow,
     getLastRefresh,
-    onRefreshComplete
+    isRunning,
+    onRefreshComplete,
+    onRefreshProgress // per-batch trickle-in progress during AI enrichment
   },
   notifications: {
     requestStatus
@@ -212,12 +246,37 @@ window.desktop = {
   },
   exports: {
     exportJson,
+    exportRecallBookmarks,
     getSnapshot
+  },
+  preferences: {
+    onChanged
+  },
+  scan: {
+    // teaching-pack / cluster-rating state, optional bridge
+    getState,
+    saveState
+  },
+  memory: {
+    // cluster_history round trip — powers Trends momentum and Dashboard
+    // novelty scoring (lib/pulse.ts computeTrendMomentumScore /
+    // computeArticleRelevanceScore)
+    getState,
+    snapshotClusters,
+    markClusterViewed,
+    markDomainViewed,
+    setDomainCollapsed,
+    getClusterHistory
   }
 }
 ```
 
-`contextIsolation` remains enabled, `nodeIntegration` remains disabled, and the renderer never receives `ipcRenderer`, raw filesystem APIs, or generic database methods.
+`search` (Phase 3A, documented below) is also part of this bridge.
+`contextIsolation` remains enabled, `nodeIntegration` remains disabled, and
+the renderer never receives `ipcRenderer`, raw filesystem APIs, or generic
+database methods. See `types/desktop.d.ts` for the authoritative,
+fully-typed surface — this list is illustrative, not exhaustive of every
+payload shape.
 
 ### Development Workflow
 
@@ -303,7 +362,9 @@ There is still no generic SQL bridge.
 
 Use the desktop Settings panel and select `Rebuild search index`. The same operation is available in main-process code as `rebuildSearchIndex(db)` from `electron/repositories/searchRepo.js`. Rebuilds repopulate `article_search` from local article and tag tables and record the last rebuild time in preferences.
 
-### Phase 3B Deferred Items
+### Phase 3B Deferred Items — current status
+
+None of these have been started:
 
 - Cloud sync
 - Conflict resolution

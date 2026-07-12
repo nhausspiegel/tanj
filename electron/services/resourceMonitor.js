@@ -58,13 +58,13 @@ function createResourceMonitor({
       const reasons = [];
       const criticalReasons = [];
 
-      if (systemFreeMemoryMb < warningFreeMemoryMb) {
-        reasons.push(`system free memory below ${warningFreeMemoryMb} MB`);
-      }
-
-      if (systemFreeMemoryMb < minFreeMemoryMb) {
-        criticalReasons.push(`system free memory below ${minFreeMemoryMb} MB`);
-      }
+      // Deliberately not gating on systemFreeMemoryMb (os.freemem()): on
+      // macOS (and to a lesser extent Linux) it counts reclaimable
+      // file-cache pages as "used", so it reads as critically low on
+      // healthy machines and throttled refreshes for everyone. Process RSS
+      // below is self-reported and doesn't have that platform quirk, so it
+      // stays as the real memory-pressure signal. systemFreeMemoryMb is
+      // still computed/returned for display purposes.
 
       if (rssMb > warningProcessRssMb) {
         reasons.push(`process RSS above ${warningProcessRssMb} MB`);

@@ -29,6 +29,7 @@ const defaultPreferences = {
     temperature: 0,
     ollamaBaseUrl: "",
     keepAlive: "",
+    timeoutMs: 45000,
   },
   resourceTuning: {
     warningFreeMemoryMb: 768,
@@ -179,6 +180,7 @@ function savePreferences(db, next) {
     if (clampedFloat(t.temperature, 0, 2) !== null) at.temperature = clampedFloat(t.temperature, 0, 2);
     if (typeof t.ollamaBaseUrl === "string") at.ollamaBaseUrl = t.ollamaBaseUrl.trim().slice(0, 256);
     if (typeof t.keepAlive === "string") at.keepAlive = t.keepAlive.trim().slice(0, 32);
+    if (clampedInt(t.timeoutMs, 5000, 300000) !== null) at.timeoutMs = clampedInt(t.timeoutMs, 5000, 300000);
     sanitized.aiTuning = at;
   }
 

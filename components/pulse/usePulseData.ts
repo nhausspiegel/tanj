@@ -97,6 +97,8 @@ export function usePulseData(): PulseData {
   const [newSinceRefreshAt, setNewSinceRefreshAt] = useState<string | null>(null);
   const loadingRef = useRef(false);
   const lastRefreshAtRef = useRef<string | null>(null);
+  const progressReloadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastProgressReloadAtRef = useRef(0);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
@@ -245,17 +247,38 @@ export function usePulseData(): PulseData {
   }, [reload]);
 
   // Re-hydrate as each AI-enrichment batch lands, so cards trickle in
-  // instead of waiting for the whole refresh to finish.
+  // instead of waiting for the whole refresh to finish. Progress ticks fire
+  // once per AI batch (every ~6 articles), which reload()s the full article
+  // set through clustering each time — throttled here so a large refresh
+  // doesn't re-cluster a dozen-plus times a few hundred ms apart; a trailing
+  // call still lands so the last batch's cards always show up.
+  const PROGRESS_RELOAD_THROTTLE_MS = 900;
   useEffect(() => {
     const desktop = typeof window !== "undefined" ? window.desktop : undefined;
     if (!desktop?.jobs?.onRefreshProgress) return;
     const unsubscribe = desktop.jobs.onRefreshProgress((payload) => {
       setRefreshing(true);
       setRefreshProgress(payload ?? null);
-      if (!loadingRef.current) reload();
+      if (loadingRef.current) return;
+
+      const elapsed = Date.now() - lastProgressReloadAtRef.current;
+      if (elapsed >= PROGRESS_RELOAD_THROTTLE_MS) {
+        lastProgressReloadAtRef.current = Date.now();
+        reload();
+      } else if (!progressReloadTimeoutRef.current) {
+        progressReloadTimeoutRef.current = setTimeout(() => {
+          progressReloadTimeoutRef.current = null;
+          lastProgressReloadAtRef.current = Date.now();
+          reload();
+        }, PROGRESS_RELOAD_THROTTLE_MS - elapsed);
+      }
     });
     return () => {
       if (typeof unsubscribe === "function") unsubscribe();
+      if (progressReloadTimeoutRef.current) {
+        clearTimeout(progressReloadTimeoutRef.current);
+        progressReloadTimeoutRef.current = null;
+      }
     };
   }, [reload]);
 

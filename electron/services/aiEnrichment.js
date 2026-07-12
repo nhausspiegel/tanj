@@ -36,6 +36,7 @@ function resolveTuning(tuning = {}) {
     maxOutputTokens: Number(tuning.maxOutputTokens) > 0 ? Number(tuning.maxOutputTokens) : 2000,
     temperature: Number.isFinite(Number(tuning.temperature)) ? Number(tuning.temperature) : 0,
     keepAlive: tuning.keepAlive || AI_KEEP_ALIVE,
+    timeoutMs: Number(tuning.timeoutMs) > 0 ? Number(tuning.timeoutMs) : AI_TIMEOUT_MS,
   };
 }
 
@@ -209,7 +210,7 @@ async function callOllama(articles, tuning) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+    signal: AbortSignal.timeout(tuning.timeoutMs),
   });
 
   if (!response.ok) {
@@ -239,7 +240,7 @@ async function callOpenAI(articles, apiKey, tuning) {
       response_format: { type: "json_object" },
       temperature: tuning.temperature,
     }),
-    signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+    signal: AbortSignal.timeout(tuning.timeoutMs),
   });
 
   if (!response.ok) {
@@ -266,7 +267,7 @@ async function callAnthropic(articles, apiKey, tuning) {
       messages: [{ role: "user", content: buildUserPrompt(articles) }],
       temperature: tuning.temperature,
     }),
-    signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+    signal: AbortSignal.timeout(tuning.timeoutMs),
   });
 
   if (!response.ok) {

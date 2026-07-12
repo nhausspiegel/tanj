@@ -28,7 +28,15 @@ function faviconUrl(sourceUrl?: string): string | null {
   }
 }
 
-function trustBar(label: string, value: number, valueLabel: string, hue: number) {
+// Red (low fill) -> green (high fill), smooth continuum via HSL hue
+// (0deg = red, 120deg = green), not a hard threshold swap between colors.
+function fillColor(pct: number): string {
+  const hue = (Math.max(0, Math.min(100, pct)) / 100) * 120;
+  return `hsl(${hue}, 72%, 50%)`;
+}
+
+function trustBar(label: string, value: number, max: number) {
+  const pct = Math.max(0, Math.min(100, (value / max) * 100));
   return (
     <div key={label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <span style={{ width: 68, fontSize: 10.5, fontWeight: 700, color: "#8a8894", flexShrink: 0 }}>
@@ -47,14 +55,14 @@ function trustBar(label: string, value: number, valueLabel: string, hue: number)
           style={{
             display: "block",
             height: "100%",
-            width: `${Math.max(0, Math.min(100, (value / 5) * 100))}%`,
+            width: `${pct}%`,
             borderRadius: 3,
-            background: `hsl(${hue}, 65%, 60%)`,
+            background: fillColor(pct),
           }}
         />
       </span>
-      <span style={{ width: 46, fontSize: 10.5, fontWeight: 700, color: "#F7F3E6", textAlign: "right", flexShrink: 0 }}>
-        {valueLabel}
+      <span style={{ width: 34, fontSize: 10.5, fontWeight: 700, color: "#F7F3E6", textAlign: "right", flexShrink: 0 }}>
+        {Math.round(pct)}%
       </span>
     </div>
   );
@@ -64,11 +72,9 @@ function trustBar(label: string, value: number, valueLabel: string, hue: number)
 // reputability/reach bars visually instead of stating them as words.
 function SourceTrustBadge({
   source,
-  hue,
   children,
 }: {
   source: PulseSourceRef;
-  hue: number;
   children: React.ReactNode;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -98,8 +104,8 @@ function SourceTrustBadge({
             gap: 7,
           }}
         >
-          {trustBar("Reputability", source.reputability, trustLabel(source.reputability), hue)}
-          {trustBar("Reach", source.reach, trustLabel(source.reach), hue)}
+          {trustBar("Reputability", source.reputability, 5)}
+          {trustBar("Reach", source.reach, 5)}
         </div>
       ) : null}
     </span>
@@ -364,7 +370,7 @@ export function StoryModal({
             <span style={{ color: "#4AD07A", fontWeight: 800 }}>{scoreText}</span>
             <span style={dot} />
             {leadSource ? (
-              <SourceTrustBadge source={leadSource} hue={domainHue(story.domain)}>
+              <SourceTrustBadge source={leadSource}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "#c9c7d0" }}>
                   <SourceLogo url={leadSource.url} />
                   {story.source}
