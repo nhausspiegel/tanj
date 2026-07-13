@@ -1,15 +1,22 @@
 /**
- * Lightweight full-text article extractor.
- * Fetches the page HTML, strips boilerplate, and returns the article body.
- * No external dependencies — uses the same Node fetch already available.
+ * Full-text article extractor.
+ * Fetches the page HTML, runs it through Readability (the Firefox Reader
+ * View algorithm) on a lightweight DOM, and returns the article body.
+ * Falls back to a regex-based heuristic if Readability yields nothing.
  */
+
+const { Readability } = require("@mozilla/readability");
+const { parseHTML } = require("linkedom");
 
 const MAX_PAGE_BYTES = 2_000_000; // 2 MB
 const FETCH_TIMEOUT_MS = 12_000;
 const MAX_CONCURRENT_EXTRACTIONS = 2;
 const PAUSE_BETWEEN_BATCHES_MS = 200;
 
-// Domains that block scrapers or return paywalled content — skip extraction
+// Domains that block scrapers or return paywalled content — skip extraction.
+// Link-aggregator/index pages (Techmeme etc.) are deliberately NOT listed
+// here — they're detected generically via link density below, so any
+// aggregator works, not just ones we happen to have noticed.
 const SKIP_DOMAINS = new Set([
   "arxiv.org",
   "nature.com",
@@ -18,6 +25,44 @@ const SKIP_DOMAINS = new Set([
   "springer.com",
   "acm.org",
 ]);
+
+const MAX_LINK_DENSITY = 0.5; // fraction of extracted text that's link-anchor text
+
+// A page that's mostly links (an index/aggregator page, not prose) has a
+// high fraction of its text sitting inside <a> tags — the same signal
+// Reader-View-style tools use to decide "this isn't really an article,"
+// generically, without needing to know the site in advance.
+function linkDensity(contentHtml) {
+  try {
+    // linkedom's Document.textContent is unreliable on a bare fragment (it
+    // comes back empty even when the fragment clearly has text) — wrapping
+    // in a full html/body document and reading document.body.textContent
+    // is the combination that actually works.
+    const { document } = parseHTML(`<html><body>${contentHtml}</body></html>`);
+    const totalLength = (document.body.textContent || "").trim().length;
+    if (totalLength === 0) return 1;
+    const anchors = Array.from(document.querySelectorAll("a"));
+    const linkLength = anchors.reduce(
+      (sum, a) => sum + (a.textContent || "").trim().length,
+      0,
+    );
+    return linkLength / totalLength;
+  } catch {
+    return 0;
+  }
+}
+
+function isLikelyArticleText(text) {
+  if (typeof text !== "string") return false;
+  const trimmed = text.trim();
+  if (trimmed.length < 200) return false;
+  // A leaked, unparsed HTML/JS/code fragment means something failed to
+  // parse cleanly — a general "this extraction is broken" signal (dense
+  // structural symbols), not a per-site or per-language pattern.
+  const symbolCount = (trimmed.match(/[{}<>;=`|]/g) || []).length;
+  if (symbolCount / trimmed.length > 0.02) return false;
+  return true;
+}
 
 function shouldSkipExtraction(url) {
   try {
@@ -58,10 +103,12 @@ function stripHtmlDeep(html) {
 }
 
 /**
- * Attempt to extract the main article content from raw HTML.
- * Strategy: find <article> tag or the largest <p>-dense block.
+ * Regex-based heuristic extraction — the original approach. Kept only as a
+ * fallback for the rare case Readability itself throws or yields nothing;
+ * it can't distinguish article prose from page chrome as reliably as a real
+ * DOM-based content-scoring algorithm, which is why it's no longer primary.
  */
-function extractArticleText(html) {
+function extractArticleTextHeuristic(html) {
   // Try <article> tag first
   const articleMatch = html.match(/<article\b[^>]*>([\s\S]*?)<\/article\s*>/i);
   if (articleMatch) {
@@ -104,6 +151,84 @@ function extractArticleText(html) {
   return fullText.length > 200 ? fullText : "";
 }
 
+/**
+ * Extract the main article content from raw HTML using Readability (the
+ * Firefox Reader View algorithm) on a lightweight DOM — real content
+ * scoring by text/link density and tag semantics, not string matching.
+ * Rejects results that are mostly links (aggregator/index pages) or that
+ * fail the general sanity checks in isLikelyArticleText. Falls back to the
+ * regex heuristic only if Readability itself throws or finds nothing.
+ */
+// Interactive controls (buttons, anything with role="button") are, as a
+// matter of web semantics, never article prose — a share widget, a "read
+// more" toggle, a newsletter-signup CTA are always built from one of these,
+// regardless of site. Stripping them before Readability scores the page
+// means share-toolbar labels ("Share", "Copy link", "X (Twitter)"...) never
+// enter the scored content in the first place, instead of relying on
+// Readability's own class/id-based unlikely-candidate list, which only
+// catches names it already knows to look for.
+function stripInteractiveControls(document) {
+  const controls = document.querySelectorAll('button, [role="button"]');
+  for (const el of Array.from(controls)) {
+    el.remove();
+  }
+}
+
+// Readability's textContent carries through the source DOM's original
+// whitespace/line-breaks uncollapsed — a general formatting gap (any site's
+// markup can be indented/broken across lines), not specific to one page.
+function collapseWhitespace(text) {
+  return text.replace(/[\r\n\t]+/g, " ").replace(/\s{2,}/g, " ").trim();
+}
+
+function extractArticleText(html) {
+  try {
+    const { document } = parseHTML(html);
+    stripInteractiveControls(document);
+    const parsed = new Readability(document).parse();
+    if (parsed && parsed.textContent) {
+      const text = collapseWhitespace(parsed.textContent);
+      // Readability found *something* — if it's confidently rejected (a
+      // link-heavy index/aggregator page, or garbled text), that's a real
+      // signal this page has no article, not a reason to retry with the
+      // weaker regex heuristic below (which has no link-density check of
+      // its own and would happily return the same bad content anyway).
+      if (isLikelyArticleText(text) && linkDensity(parsed.content) <= MAX_LINK_DENSITY) {
+        return text;
+      }
+      return "";
+    }
+  } catch {
+    // Readability itself failed to run — fall through and try the heuristic.
+  }
+
+  const fallback = extractArticleTextHeuristic(html);
+  return isLikelyArticleText(fallback) ? fallback : "";
+}
+
+// Many feeds don't include a thumbnail in their RSS <enclosure>/media fields
+// even though the article page itself has a normal og:image (or Twitter
+// card image) meta tag for social-share previews. This is a fallback for
+// when the feed had nothing — never overrides a feed-provided thumbnail.
+function extractOgImage(html, pageUrl) {
+  try {
+    const { document } = parseHTML(html);
+    const meta =
+      document.querySelector('meta[property="og:image"]') ||
+      document.querySelector('meta[name="twitter:image"]');
+    const content = meta?.getAttribute("content");
+    if (!content) return null;
+    return new URL(content, pageUrl).href;
+  } catch {
+    return null;
+  }
+}
+
+// Returns { text, imageUrl } on a successful fetch (text may be "" if the
+// content was rejected — see extractArticleText), or null if the page
+// itself couldn't be fetched at all (blocked, timed out, wrong content
+// type, etc.) — callers must not treat a null fetch the same as a
+// confirmed-empty extraction; see enrichArticlesWithFullText below.
 async function fetchPageText(url) {
   if (!url || shouldSkipExtraction(url)) {
     return null;
@@ -124,31 +249,31 @@ async function fetchPageText(url) {
     const contentType = response.headers.get("content-type") || "";
     if (!contentType.includes("html")) return null;
 
+    let html;
     // Read with byte limit
     if (!response.body?.getReader) {
-      const text = await response.text();
-      if (Buffer.byteLength(text, "utf8") > MAX_PAGE_BYTES) return null;
-      return extractArticleText(text);
-    }
+      html = await response.text();
+      if (Buffer.byteLength(html, "utf8") > MAX_PAGE_BYTES) return null;
+    } else {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let bytes = 0;
+      html = "";
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let bytes = 0;
-    let html = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      bytes += value.byteLength;
-      if (bytes > MAX_PAGE_BYTES) {
-        await reader.cancel();
-        return null;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        bytes += value.byteLength;
+        if (bytes > MAX_PAGE_BYTES) {
+          await reader.cancel();
+          return null;
+        }
+        html += decoder.decode(value, { stream: true });
       }
-      html += decoder.decode(value, { stream: true });
+      html += decoder.decode();
     }
-    html += decoder.decode();
 
-    return extractArticleText(html);
+    return { text: extractArticleText(html), imageUrl: extractOgImage(html, url) };
   } catch {
     return null;
   }
@@ -186,9 +311,18 @@ async function enrichArticlesWithFullText(articles, {
     );
 
     for (let j = 0; j < batch.length; j++) {
-      const fullText = texts[j];
+      const result = texts[j];
+      if (!result) continue; // fetch failed entirely — leave this article untouched
+      const idx = i + j;
+
+      // Independent of text-extraction success: only fills in when the feed
+      // itself had no thumbnail, never overrides one it did have.
+      if (!results[idx].image_url && result.imageUrl) {
+        results[idx] = { ...results[idx], image_url: result.imageUrl };
+      }
+
+      const fullText = result.text;
       if (fullText && fullText.length > 100) {
-        const idx = i + j;
         results[idx] = {
           ...results[idx],
           fullText: fullText.slice(0, 5000), // Cap storage at 5k chars
@@ -219,7 +353,12 @@ async function enrichArticlesWithFullText(articles, {
 
 module.exports = {
   enrichArticlesWithFullText,
+  excerptFrom,
   extractArticleText,
+  extractArticleTextHeuristic,
+  extractOgImage,
   fetchPageText,
+  isLikelyArticleText,
+  linkDensity,
   shouldSkipExtraction,
 };

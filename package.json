@@ -25,7 +25,9 @@
     "test": "npm run rebuild:node && vitest run"
   },
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
     "better-sqlite3": "^12.9.0",
+    "linkedom": "^0.18.13",
     "next": "^16.2.4",
     "pg": "^8.20.0",
     "react": "^19.2.0",
