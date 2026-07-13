@@ -110,7 +110,6 @@ describe("buildTrends", () => {
     expect(e.dayIndex).toBe(3); // 3 days ago in a 7-day window (idx 0..6)
     expect(e.articles).toBe(2);
     expect(e.sources).toBe(2); // two distinct outlets
-    expect(e.tags).toEqual(["alpha", "beta", "gamma"]);
     // Reporting is oldest-first.
     expect(e.reporting[0].src).toBe("Reuters Tech");
   });

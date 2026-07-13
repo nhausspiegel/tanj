@@ -712,27 +712,6 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                               </div>
                             </>
                           ) : null}
-                          {e.tags.length ? (
-                            <>
-                              <div style={{ ...microLabel, color: "#8a8894", marginBottom: 7 }}>Organizations &amp; tags</div>
-                              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                                {e.tags.map((tag) => (
-                                  <span
-                                    key={tag}
-                                    style={{
-                                      border: "1px solid rgba(255,255,255,0.12)",
-                                      color: "#a5a3ae",
-                                      fontSize: 10.5,
-                                      padding: "3px 9px",
-                                      borderRadius: 4,
-                                    }}
-                                  >
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
-                            </>
-                          ) : null}
                         </div>
                       </div>
                     ) : null}

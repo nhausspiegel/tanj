@@ -29,7 +29,6 @@ export type TrendEvent = {
   sources: number;
   reporting: TrendReportItem[];
   related: { title: string; src: string; url?: string }[];
-  tags: string[];
 };
 
 export type TrendsModel = {
@@ -249,7 +248,6 @@ export function buildTrends(
       sources: Math.max(1, uniqueSources),
       reporting,
       related: [], // filled below, once every event is known
-      tags: (story.tags ?? []).slice(0, 6),
     });
   }
 
