@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   defaultFollowed,
+  PULSE_DOMAIN_ORDER,
   type PulseBoolMap,
   type PulseVoteMap,
 } from "@/lib/pulse";
 
 const FOLLOWED_KEY = "pulseai-followed-v2";
+const TOPIC_ORDER_KEY = "pulseai-topic-order-v1";
 const VOTES_KEY = "pulseai-votes";
 const SAVED_KEY = "pulseai-saved";
 
@@ -32,6 +34,26 @@ function writeJson(key: string, value: unknown) {
   }
 }
 
+function normalizeTopicOrder(order: unknown): string[] {
+  const saved = Array.isArray(order) ? order : [];
+  const knownDomains = new Set(PULSE_DOMAIN_ORDER);
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const domain of saved) {
+    if (
+      typeof domain === "string" &&
+      knownDomains.has(domain as (typeof PULSE_DOMAIN_ORDER)[number]) &&
+      !seen.has(domain)
+    ) {
+      seen.add(domain);
+      normalized.push(domain);
+    }
+  }
+
+  return [...normalized, ...PULSE_DOMAIN_ORDER.filter((domain) => !seen.has(domain))];
+}
+
 // Fire boost/suppress into tanj's real learning store when running in Electron.
 // Best-effort: failures never block the UI, and web mode simply skips it.
 function recordVoteFeedback(articleId: string, vote: 1 | -1 | 0) {
@@ -51,9 +73,11 @@ function recordVoteFeedback(articleId: string, vote: 1 | -1 | 0) {
 
 export type PulseState = {
   followed: PulseBoolMap;
+  topicOrder: string[];
   votes: PulseVoteMap;
   saved: PulseBoolMap;
   setFollowed: (domain: string, value: boolean) => void;
+  reorderTopics: (draggedDomain: string, targetDomain: string, position: "before" | "after") => void;
   setVote: (id: string, vote: 1 | -1) => void;
   toggleSaved: (id: string) => void;
 };
@@ -65,11 +89,13 @@ export type PulseState = {
  */
 export function usePulseState(): PulseState {
   const [followed, setFollowedState] = useState<PulseBoolMap>(() => defaultFollowed());
+  const [topicOrder, setTopicOrder] = useState<string[]>(() => [...PULSE_DOMAIN_ORDER]);
   const [votes, setVotesState] = useState<PulseVoteMap>({});
   const [saved, setSavedState] = useState<PulseBoolMap>({});
 
   useEffect(() => {
     setFollowedState(readJson<PulseBoolMap>(FOLLOWED_KEY, defaultFollowed()));
+    setTopicOrder(normalizeTopicOrder(readJson<unknown>(TOPIC_ORDER_KEY, PULSE_DOMAIN_ORDER)));
     setVotesState(readJson<PulseVoteMap>(VOTES_KEY, {}));
     setSavedState(readJson<PulseBoolMap>(SAVED_KEY, {}));
   }, []);
@@ -78,6 +104,22 @@ export function usePulseState(): PulseState {
     setFollowedState((prev) => {
       const next = { ...prev, [domain]: value };
       writeJson(FOLLOWED_KEY, next);
+      return next;
+    });
+  }, []);
+
+  const reorderTopics = useCallback((draggedDomain: string, targetDomain: string, position: "before" | "after") => {
+    if (draggedDomain === targetDomain) return;
+    setTopicOrder((previous) => {
+      const fromIndex = previous.indexOf(draggedDomain);
+      if (fromIndex < 0) return previous;
+
+      const next = previous.filter((domain) => domain !== draggedDomain);
+      const targetIndex = next.indexOf(targetDomain);
+      if (targetIndex < 0) return previous;
+
+      next.splice(targetIndex + (position === "after" ? 1 : 0), 0, draggedDomain);
+      writeJson(TOPIC_ORDER_KEY, next);
       return next;
     });
   }, []);
@@ -100,5 +142,5 @@ export function usePulseState(): PulseState {
     });
   }, []);
 
-  return { followed, votes, saved, setFollowed, setVote, toggleSaved };
+  return { followed, topicOrder, votes, saved, setFollowed, reorderTopics, setVote, toggleSaved };
 }

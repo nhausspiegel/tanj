@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   PULSE_ACCENT,
-  PULSE_DOMAIN_ORDER,
   cardThumb,
   computeScore,
   domainHue,
@@ -60,7 +59,7 @@ export function PulseClient() {
     canRefresh,
     triggerRefresh,
   } = usePulseData();
-  const { followed, votes, saved, setFollowed, setVote, toggleSaved } = usePulseState();
+  const { followed, topicOrder, votes, saved, setFollowed, reorderTopics, setVote, toggleSaved } = usePulseState();
 
   const [page, setPage] = useState<Page>("foryou");
   const [heroIndex, setHeroIndex] = useState(0);
@@ -124,18 +123,18 @@ export function PulseClient() {
     [saved, byId],
   );
 
-  // Domains that actually have stories, in the designed order.
+  // Domains that actually have stories, in the order chosen from the sidebar.
   const domainsWithStories = useMemo(() => {
     const present = new Set(stories.map((s) => s.domain));
-    return PULSE_DOMAIN_ORDER.filter((d) => present.has(d));
-  }, [stories]);
+    return topicOrder.filter((domain): domain is ArticleDomain => present.has(domain as ArticleDomain));
+  }, [stories, topicOrder]);
 
   const moreDomains = useMemo(() => {
     const present = new Set(stories.map((s) => s.domain));
-    return PULSE_DOMAIN_ORDER.filter((d) => !present.has(d))
+    return topicOrder.filter((domain): domain is ArticleDomain => !present.has(domain as ArticleDomain))
       .map((d) => domainLabel(d))
       .join(" · ");
-  }, [stories]);
+  }, [stories, topicOrder]);
 
   // Dismissed (X'd) stories always sort to the very end of their row,
   // regardless of score — that's the whole point of dismissing one.
@@ -292,8 +291,12 @@ export function PulseClient() {
           setFollowed(d, !followed[d]);
         },
         onClick: () => {
+          if (page === "all") {
+            scrollToRow(d);
+            return;
+          }
           if (!followed[d]) return;
-          if (page !== "foryou" && page !== "all") {
+          if (page !== "foryou") {
             setPage("foryou");
             setTimeout(() => scrollToRow(d), 80);
           } else {
@@ -339,6 +342,7 @@ export function PulseClient() {
         refreshWarning={refreshWarning}
         onRefresh={triggerRefresh}
         onOpenSettings={() => setSettingsOpen(true)}
+        onReorderTopics={reorderTopics}
       />
 
       <main

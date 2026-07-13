@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useState, type CSSProperties, type DragEvent } from "react";
 import { PULSE_ACCENT, PULSE_ACCENT_HIGHLIGHT } from "@/lib/pulse";
 import type { PulseRefreshProgress } from "@/components/pulse/usePulseData";
 
@@ -43,6 +43,7 @@ export function PulseSidebar({
   refreshWarning,
   onRefresh,
   onOpenSettings,
+  onReorderTopics,
 }: {
   navItems: NavItemVM[];
   topics: TopicVM[];
@@ -55,8 +56,20 @@ export function PulseSidebar({
   refreshWarning: string | null;
   onRefresh: () => void;
   onOpenSettings: () => void;
+  onReorderTopics: (draggedTopic: string, targetTopic: string, position: "before" | "after") => void;
 }) {
   const [topicsOpen, setTopicsOpen] = useState(true);
+  const [draggedTopic, setDraggedTopic] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ topic: string; position: "before" | "after" } | null>(null);
+  const onTopicDragOver = (event: DragEvent<HTMLDivElement>, topic: string) => {
+    event.preventDefault();
+    if (!draggedTopic || draggedTopic === topic) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    setDropTarget({
+      topic,
+      position: event.clientY < bounds.top + bounds.height / 2 ? "before" : "after",
+    });
+  };
   const progressPct =
     refreshProgress && refreshProgress.total > 0
       ? Math.min(100, Math.round((refreshProgress.processed / refreshProgress.total) * 100))
@@ -220,6 +233,9 @@ export function PulseSidebar({
           ▾
         </span>
       </button>
+      <div style={{ fontSize: 10.5, color: "#55535e", padding: "0 12px", margin: "-3px 0 8px" }}>
+        Click and drag to reorder
+      </div>
       {topicsOpen ? (
         <>
       <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
@@ -227,17 +243,54 @@ export function PulseSidebar({
           <div
             key={t.key}
             className="pulse-topic"
+            draggable
+            onDragStart={(event) => {
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("text/plain", t.key);
+              setDraggedTopic(t.key);
+            }}
+            onDragOver={(event) => onTopicDragOver(event, t.key)}
+            onDrop={(event) => {
+              event.preventDefault();
+              const source = draggedTopic ?? event.dataTransfer.getData("text/plain");
+              const bounds = event.currentTarget.getBoundingClientRect();
+              const position = event.clientY < bounds.top + bounds.height / 2 ? "before" : "after";
+              if (source) onReorderTopics(source, t.key, position);
+              setDraggedTopic(null);
+              setDropTarget(null);
+            }}
+            onDragEnd={() => {
+              setDraggedTopic(null);
+              setDropTarget(null);
+            }}
+            title="Drag to reorder topics"
             style={{
+              position: "relative",
               display: "flex",
               alignItems: "center",
               gap: 9,
               padding: "2px 4px 2px 12px",
               borderRadius: 8,
-              opacity: t.opacity,
+              opacity: draggedTopic === t.key ? 0.35 : t.opacity,
               width: "100%",
               boxSizing: "border-box",
+              cursor: "grab",
             }}
           >
+            {dropTarget?.topic === t.key ? (
+              <span
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  left: 12,
+                  right: 4,
+                  height: 2,
+                  borderRadius: 1,
+                  background: PULSE_ACCENT,
+                  [dropTarget.position === "before" ? "top" : "bottom"]: -2,
+                }}
+              />
+            ) : null}
             <button
               onClick={t.onClick}
               title={t.title}
