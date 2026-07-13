@@ -128,22 +128,6 @@ describe("buildTrends", () => {
     expect(model.events.some((e) => e.domainKey === "Robotics")).toBe(false);
   });
 
-  it("computes the delta week-over-week (this week vs. the previous 7 days)", () => {
-    const stories = [
-      // This week: 3 LLM articles (0–2 days ago)
-      article("LLM", 0, "t1"),
-      article("LLM", 1, "t2"),
-      article("LLM", 2, "t3"),
-      // Previous week: 2 LLM articles (8–9 days ago)
-      article("LLM", 8, "l1"),
-      article("LLM", 9, "l2"),
-    ];
-    const model = buildTrends(stories, [], NOW);
-    const llm = model.domains.find((d) => d.key === "LLM");
-    expect(llm?.delta).toBe("+50%"); // 3 vs 2
-    expect(llm?.deltaPositive).toBe(true);
-  });
-
   it("links related events within the same domain, excluding self", () => {
     const clusters = [cluster("LLM", 1, 9), cluster("LLM", 2, 8)];
     const model = buildTrends([article("LLM", 1)], clusters, NOW);

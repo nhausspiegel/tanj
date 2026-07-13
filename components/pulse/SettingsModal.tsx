@@ -455,7 +455,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <div style={sectionLabel}>AI summaries</div>
           <p style={{ margin: "0 0 14px", fontSize: 12.5, lineHeight: 1.55, color: "#a5a3ae" }}>
             Paste your own API key to get real plain-language "why it matters" summaries. Without a
-            key, PULSE still works — headlines just use the raw feed text. Your key is stored only on
+            key, TANJ still works — headlines just use the raw feed text. Your key is stored only on
             this machine and sent directly to the provider, never anywhere else.
           </p>
 

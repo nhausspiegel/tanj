@@ -78,7 +78,7 @@ export function PulseSidebar({
     >
       <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
         <span style={{ fontSize: 21, fontWeight: 900, letterSpacing: "-0.03em", color: "#F7F3E6" }}>
-          PULSE
+          TANJ
         </span>
         <span style={{ fontSize: 21, fontWeight: 900, letterSpacing: "-0.03em", color: PULSE_ACCENT }}>
           /AI

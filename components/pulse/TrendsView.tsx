@@ -4,9 +4,15 @@ import { useMemo, useRef, useState, type CSSProperties } from "react";
 import type { ArticleDomain } from "@/lib/types";
 import type { TrendEvent, TrendsModel } from "@/lib/trends";
 
-// ── Chart geometry (matches the design reference exactly) ─────────────
+// ── Chart geometry ────────────────────────────────────────────────────
+// Symmetric left/right gutters inside the 1000-wide viewBox so the 7 days
+// span the full width evenly (not shoved against the right edge).
+const CHART_LEFT = 46;
+const CHART_RIGHT = 954;
+const CHART_STEP = (CHART_RIGHT - CHART_LEFT) / 6;
+
 function chartXY(day: number, value: number) {
-  return { x: 46 + day * (938 / 6), y: 296 - value * 3.3 };
+  return { x: CHART_LEFT + day * CHART_STEP, y: 296 - value * 3.3 };
 }
 
 function pathFor(values: number[], d0: number, d1: number): string {
@@ -119,7 +125,7 @@ export function TrendsView({ model }: { model: TrendsModel }) {
           Trends
         </h1>
         <div style={{ fontSize: 12, fontWeight: 600, color: "#8a8894", margin: "4px 0 0" }}>
-          Last 7 days · change vs. the previous week
+          Last 7 days
         </div>
 
         {/* Legend */}
@@ -150,16 +156,6 @@ export function TrendsView({ model }: { model: TrendsModel }) {
               >
                 <span style={{ width: 16, height: 0, borderTop: `2px dashed ${d.color}` }} />
                 <span>{d.label}</span>
-                <span
-                  title="Change vs. the previous 7 days"
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 800,
-                    color: active ? (d.deltaPositive ? "#4AD07A" : "#E5695B") : "#66646f",
-                  }}
-                >
-                  {d.delta}
-                </span>
               </button>
             );
           })}
@@ -178,7 +174,7 @@ export function TrendsView({ model }: { model: TrendsModel }) {
           <div style={{ position: "relative" }}>
             <svg viewBox="0 0 1000 330" style={{ display: "block", width: "100%", height: "auto" }}>
               {GRID_Y.map((y) => (
-                <line key={y} x1="46" x2="984" y1={y} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+                <line key={y} x1={CHART_LEFT} x2={CHART_RIGHT} y1={y} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
               ))}
               {days.map((label, i) => (
                 <text

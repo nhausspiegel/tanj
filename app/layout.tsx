@@ -10,7 +10,7 @@ const archivo = Archivo({
 });
 
 export const metadata: Metadata = {
-  title: "PULSE/AI — Tech intelligence, daily",
+  title: "TANJ/AI — Tech intelligence, daily",
   description: "A dark, cinematic view of tech signals across every domain we track.",
 };
 

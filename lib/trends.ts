@@ -12,8 +12,6 @@ export type TrendDomain = {
   label: string;
   color: string; // hsl(...) from the domain's own hue
   values: number[]; // length 7, scaled for the chart (0–NORM_MAX)
-  delta: string; // 7-day change, e.g. "+44%"
-  deltaPositive: boolean;
 };
 
 export type TrendReportItem = { t: string; src: string; note: string; url?: string };
@@ -91,15 +89,6 @@ function truncate(text: string | undefined, max: number): string {
   return clean.length > max ? clean.slice(0, max - 1).trimEnd() + "…" : clean;
 }
 
-function formatDelta(recent: number, earlier: number): { delta: string; positive: boolean } {
-  if (earlier <= 0) {
-    const positive = recent > 0;
-    return { delta: positive ? "new" : "—", positive };
-  }
-  const pct = Math.round(((recent - earlier) / earlier) * 100);
-  return { delta: `${pct >= 0 ? "+" : ""}${pct}%`, positive: pct >= 0 };
-}
-
 /**
  * Builds the Trends chart + timeline model.
  *
@@ -127,27 +116,17 @@ export function buildTrends(
     return idx >= 0 && idx < WINDOW_DAYS ? idx : -1;
   };
 
-  // This-week daily counts per domain, plus previous-week totals for a true
-  // week-over-week delta. Both come from the same article list — getArticles
-  // returns well over 7 days of history.
-  const lastWeekStart = todayStart - (2 * WINDOW_DAYS - 1) * MS_DAY; // 13 days ago
-  const lastWeekEnd = todayStart - WINDOW_DAYS * MS_DAY; // 7 days ago
+  // Per-domain daily article counts within the 7-day window.
   const counts = new Map<ArticleDomain, number[]>();
-  const lastWeek = new Map<ArticleDomain, number>();
   for (const story of articleStories) {
-    const dayStart = storyDayStart(story);
-    if (dayStart === null) continue;
-    const idx = dayIndexOf(dayStart);
-    if (idx >= 0) {
-      let row = counts.get(story.domain);
-      if (!row) {
-        row = new Array(WINDOW_DAYS).fill(0);
-        counts.set(story.domain, row);
-      }
-      row[idx] += 1;
-    } else if (dayStart >= lastWeekStart && dayStart <= lastWeekEnd) {
-      lastWeek.set(story.domain, (lastWeek.get(story.domain) ?? 0) + 1);
+    const idx = dayIndexOf(storyDayStart(story));
+    if (idx < 0) continue;
+    let row = counts.get(story.domain);
+    if (!row) {
+      row = new Array(WINDOW_DAYS).fill(0);
+      counts.set(story.domain, row);
     }
+    row[idx] += 1;
   }
 
   // Most active domains this week lead, capped at MAX_DOMAINS.
@@ -163,18 +142,12 @@ export function buildTrends(
   // so heights stay comparable between domains.
   const globalMax = Math.max(1, ...ranked.flatMap((d) => d.row));
 
-  const domains: TrendDomain[] = ranked.map(({ key, row, total }) => {
-    // Week over week: this week's article count vs the previous 7 days.
-    const { delta, positive } = formatDelta(total, lastWeek.get(key) ?? 0);
-    return {
-      key,
-      label: domainLabel(key),
-      color: `hsl(${domainHue(key)}, 70%, 62%)`,
-      values: row.map((v) => Number(((v / globalMax) * NORM_MAX).toFixed(2))),
-      delta,
-      deltaPositive: positive,
-    };
-  });
+  const domains: TrendDomain[] = ranked.map(({ key, row }) => ({
+    key,
+    label: domainLabel(key),
+    color: `hsl(${domainHue(key)}, 70%, 62%)`,
+    values: row.map((v) => Number(((v / globalMax) * NORM_MAX).toFixed(2))),
+  }));
 
   // Events: top clusters by base score — the week's major stories — restricted
   // to the shown domains and window, at most EVENTS_PER_DOMAIN each.

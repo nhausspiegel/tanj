@@ -100,7 +100,7 @@ export function StoryRow({
                 marginRight: 4,
               }}
             >
-              × Filter out
+              × Remove
             </button>
           ) : null}
           {row.addable ? (
@@ -121,7 +121,7 @@ export function StoryRow({
                 marginRight: 4,
               }}
             >
-              + Add to For You
+              + Add
             </button>
           ) : null}
           {row.inFeed ? (

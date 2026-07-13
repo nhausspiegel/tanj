@@ -18,24 +18,27 @@ import { usePulseState } from "@/components/pulse/usePulseState";
 import { PulseSidebar, type NavItemVM, type TopicVM } from "@/components/pulse/PulseSidebar";
 import { PulseHero } from "@/components/pulse/PulseHero";
 import { StoryRow, type RowItem, type RowViewModel } from "@/components/pulse/StoryRow";
+import { StoryCard } from "@/components/pulse/StoryCard";
 import { TrendsView } from "@/components/pulse/TrendsView";
 import { buildTrends } from "@/lib/trends";
 import { StoryModal } from "@/components/pulse/StoryModal";
 import { SettingsModal } from "@/components/pulse/SettingsModal";
 import { useThemeOverrides } from "@/components/pulse/useThemeOverrides";
 
-type Page = "foryou" | "all" | "trends";
+type Page = "foryou" | "all" | "trends" | "mylikes";
 
 const PAGE_TITLE: Record<Page, string> = {
   foryou: "For You",
   all: "All Domains",
   trends: "Trends",
+  mylikes: "My Likes",
 };
 
 const PAGE_SUB: Record<Page, string> = {
-  foryou: "Your domains · sorted by personalized score",
+  foryou: "",
   all: "Every domain we track · nothing filtered",
   trends: "Top signals across all domains · by personalized score",
+  mylikes: "",
 };
 
 function openExternal(url?: string) {
@@ -207,19 +210,12 @@ export function PulseClient() {
         .filter((d) => followed[d])
         .map((d) => ({ key: d, label: domainLabel(d), list: storiesFor(d) }));
 
-      // Suggested/My Likes are the personalized picks — lead with them, not
-      // bury them below every followed-domain row.
+      // Suggested picks lead the feed. Liked stories live on their own
+      // My Likes page now, not buried in a dashboard row.
       const unfollowed = domainsWithStories.filter((d) => !followed[d]);
       if (unfollowed.length) {
         const pool = sortedByScore(stories.filter((s) => unfollowed.includes(s.domain))).slice(0, 8);
         if (pool.length) defs.unshift({ key: "suggested", label: "Suggested for You", list: pool });
-      }
-      if (savedIds.length) {
-        defs.unshift({
-          key: "mylikes",
-          label: "My Likes",
-          list: savedIds.map((id) => byId.get(id)).filter((s): s is PulseStory => Boolean(s)),
-        });
       }
     }
 
@@ -227,7 +223,7 @@ export function PulseClient() {
       key: def.key,
       label: def.label,
       count: def.list.length,
-      removable: page === "foryou" && def.key !== "mylikes" && def.key !== "suggested",
+      removable: page === "foryou" && def.key !== "suggested",
       addable: page === "all" && !followed[def.key],
       inFeed: page === "all" && !!followed[def.key],
       onRemove: () => setFollowed(def.key, false),
@@ -249,6 +245,13 @@ export function PulseClient() {
   // Trends: chart activity from per-article stories, events from clusters.
   const trendsModel = useMemo(() => buildTrends(stories, rankedStories), [stories, rankedStories]);
 
+  // My Likes page: the saved stories, as cards.
+  const likedStories = useMemo(
+    () => savedIds.map((id) => byId.get(id)).filter((s): s is PulseStory => Boolean(s)),
+    [savedIds, byId],
+  );
+  const likedItems = useMemo(() => buildItems("mylikes", likedStories), [buildItems, likedStories]);
+
   // ── Sidebar view-models ───────────────────────────────────────────
   const navItems: NavItemVM[] = useMemo(() => {
     const base: { key: Page; label: string }[] = [
@@ -267,18 +270,11 @@ export function PulseClient() {
       key: "mylikes",
       label: "My Likes",
       badge: String(savedIds.length),
-      active: false,
-      onClick: () => {
-        if (page !== "foryou") {
-          setPage("foryou");
-          setTimeout(() => scrollToRow("mylikes"), 80);
-        } else {
-          scrollToRow("mylikes");
-        }
-      },
+      active: page === "mylikes",
+      onClick: () => goToPage("mylikes"),
     });
     return items;
-  }, [page, savedIds.length, goToPage, scrollToRow]);
+  }, [page, savedIds.length, goToPage]);
 
   const topics: TopicVM[] = useMemo(
     () =>
@@ -295,7 +291,7 @@ export function PulseClient() {
         },
         onClick: () => {
           if (!followed[d]) return;
-          if (page === "trends") {
+          if (page !== "foryou" && page !== "all") {
             setPage("foryou");
             setTimeout(() => scrollToRow(d), 80);
           } else {
@@ -355,6 +351,48 @@ export function PulseClient() {
       >
         {page === "trends" ? (
           <TrendsView model={trendsModel} />
+        ) : page === "mylikes" ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 22, padding: "28px 44px 60px" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: 21,
+                  fontWeight: 900,
+                  letterSpacing: "-0.02em",
+                  color: "#F7F3E6",
+                }}
+              >
+                My Likes
+              </h2>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#8a8894" }}>
+                {likedStories.length} {likedStories.length === 1 ? "story" : "stories"}
+              </span>
+            </div>
+            {likedStories.length ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
+                {likedItems.map(({ key, ...props }) => (
+                  <StoryCard key={key} {...props} />
+                ))}
+              </div>
+            ) : (
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: "56px 28px",
+                  textAlign: "center",
+                  border: "1px dashed rgba(255,255,255,0.12)",
+                  borderRadius: 14,
+                  color: "#8a8894",
+                }}
+              >
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#c9c7d0" }}>Nothing liked yet</div>
+                <div style={{ fontSize: 12.5, marginTop: 8, color: "#66646f", lineHeight: 1.6 }}>
+                  Tap the heart on any story to save it here.
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           <>
             {page === "foryou" && heroes.length > 0 ? (
@@ -382,7 +420,9 @@ export function PulseClient() {
                   >
                     {PAGE_TITLE[page]}
                   </h2>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#8a8894" }}>{PAGE_SUB[page]}</span>
+                  {PAGE_SUB[page] ? (
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#8a8894" }}>{PAGE_SUB[page]}</span>
+                  ) : null}
                 </div>
                 {showAddHint ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
