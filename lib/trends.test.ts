@@ -19,6 +19,7 @@ function article(domain: ArticleDomain, daysAgo: number, id = `${domain}-${daysA
     tldr: "Short summary.",
     importance: 3,
     baseScore: 5,
+    tags: [],
     sources: [{ name: "TechCrunch", hoursAgo: daysAgo * 24, summary: "Short summary.", reputability: 4, reach: 5, composite: 3 }],
   };
 }

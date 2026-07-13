@@ -38,6 +38,47 @@ Working list of open items from ongoing PULSE work. Delete items once shipped
   every load, including Dashboard articles wrapped as trivial one-article
   clusters (`articleToSnapshotCluster`).
 
+- **Tech-debt audit (2026-07-12, `/simplify`)** — repo forked/vibe-coded fast,
+  first real pass at what's slowing iteration down. Fixed already:
+  - ~~Refresh pipeline double-upserted every enriched article~~ — fixed:
+    `refreshService.js`'s `onBatch` upsert and the end-of-refresh upsert now
+    dedupe via an `upsertedIds` set instead of writing every article twice.
+  - ~~Full re-cluster on every AI-enrichment progress tick~~ — fixed:
+    `usePulseData.ts`'s `onRefreshProgress` reload is now throttled
+    (~900ms) instead of re-clustering up to 400 articles per batch (~13x/refresh).
+  Still open, not started:
+  - **Three drifting tag/domain taxonomies** — `refreshService.js` (heuristic
+    `inferTags`), `aiEnrichment.js` (`ARTICLE_DOMAINS`), `lib/scoring.ts`
+    (`STRATEGIC_TAGS`) each define their own list independently.
+  - **Two independent scoring systems, no shared contract** —
+    `lib/pulse.ts` (`computeArticleRelevanceScore`/`computeTrendMomentumScore`)
+    and `lib/scoring.ts` evolved on separate commits with no test forcing
+    them to agree; this is exactly what caused the `PulseStory.tags`
+    required-field merge conflict with Ananya's `lib/trends.test.ts` fixtures.
+  - **Zero test coverage on the highest-risk files** —
+    `electron/services/refreshService.js`, `electron/services/aiEnrichment.js`,
+    `electron/repositories/preferencesRepo.js`, `lib/scoring.ts`. (`lib/pulse.ts`
+    and `lib/clustering.ts` do have tests.) Changes to these are currently
+    unguarded — this is why the double-upsert bug above went unnoticed.
+  - **God files** — `preferencesRepo.js` (620 lines: prefs CRUD + scan state +
+    affinity/learning-profile ML logic + admin export, unrelated concerns in
+    one file), `refreshService.js` (683 lines: fetch/backoff/state-machine +
+    a full heuristic tagging/importance engine), `usePulseData.ts` (a "hook"
+    that does IPC orchestration + clustering + lifecycle state — business
+    logic that belongs in `lib/`), `SettingsModal.tsx` (885 lines / 28 hooks).
+  - **N+1 / unbatched DB writes** — `articlesRepo.js`'s per-tag
+    `getOrCreateTag` calls in a loop instead of a batched statement;
+    `preferencesRepo.js`'s `updateAffinitiesForClusterFeedback` does
+    read-then-write per tag/entity in an uncommitted loop (no transaction).
+  - **Small dead weight** — `resourceMonitor.js`'s `severity`/`criticalReasons`
+    fields have no consumer; `types/desktop.d.ts`'s `DesktopPreferences.learningProfile`
+    is declared but never read (real learning profile goes through a separate
+    IPC call); decorative `as X` type casts in `lib/ai.ts`, `lib/clustering.ts`,
+    `lib/teachingPack.ts` paper over union types instead of narrowing them.
+  - **Inconsistent IPC error handling** — `electron/main.js` handlers split
+    between try/catch-wrapped `{success:false,error}` mutations and unguarded
+    read handlers that let exceptions propagate as raw rejections.
+
 ## Deferred (explicitly on hold, don't start without being asked)
 
 - **One-time AI backfill for old articles** — 806 of ~834 cached articles
