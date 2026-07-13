@@ -14,7 +14,7 @@ export type TrendDomain = {
   values: number[]; // length 7, scaled for the chart (0–NORM_MAX)
 };
 
-export type TrendReportItem = { t: string; src: string; note: string; url?: string };
+export type TrendReportItem = { t: string; src: string; headline: string; url?: string };
 
 export type TrendEvent = {
   id: string;
@@ -85,12 +85,6 @@ function latestTimestamp(...lists: PulseStory[][]): number | null {
     }
   }
   return max;
-}
-
-function truncate(text: string | undefined, max: number): string {
-  if (!text) return "";
-  const clean = text.trim();
-  return clean.length > max ? clean.slice(0, max - 1).trimEnd() + "…" : clean;
 }
 
 /**
@@ -218,7 +212,7 @@ export function buildTrends(
       .map((s) => ({
         t: monthDayLabel(reference - s.hoursAgo * 3600_000),
         src: s.name,
-        note: truncate(s.summary, 72),
+        headline: s.headline,
         url: s.url,
       }));
 

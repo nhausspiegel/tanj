@@ -668,7 +668,7 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                                       ) : (
                                         <span style={{ color: "#b5b3be", fontWeight: 600 }}>{rp.src}</span>
                                       )}
-                                      {rp.note ? <> — {rp.note}</> : null}
+                                      {rp.headline ? <> — {rp.headline}</> : null}
                                     </span>
                                   </div>
                                 ))}

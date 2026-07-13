@@ -45,6 +45,7 @@ export type PulseSourceRef = {
   name: string;
   url?: string;
   hoursAgo: number;
+  headline: string; // this contributing article's own title — reliable across every feed, unlike `summary`
   summary: string;
   reputability: number;
   reach: number;
@@ -341,6 +342,7 @@ export function clusterToStory(
         name,
         url: article.url,
         hoursAgo,
+        headline: article.headline,
         summary: article.summary,
         reputability,
         reach,
@@ -398,6 +400,7 @@ export function articlesToStories(
       name,
       url: article.url,
       hoursAgo,
+      headline: article.headline,
       summary: article.summary,
       reputability,
       reach,
@@ -554,6 +557,7 @@ export const SEED_STORIES: PulseStory[] = SEED_INPUT.map((s) => {
         name: s.source,
         url: undefined,
         hoursAgo,
+        headline: s.title,
         summary: s.tldr,
         reputability,
         reach,

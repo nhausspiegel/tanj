@@ -23,7 +23,7 @@ function article(domain: ArticleDomain, daysAgo: number, id = `${domain}-${daysA
     importance: 3,
     baseScore: 5,
     tags: [],
-    sources: [{ name: "TechCrunch", hoursAgo: daysAgo * 24, summary: "Short summary.", reputability: 4, reach: 5, composite: 3 }],
+    sources: [{ name: "TechCrunch", hoursAgo: daysAgo * 24, headline: `${domain} headline ${id}`, summary: "Short summary.", reputability: 4, reach: 5, composite: 3 }],
   };
 }
 
@@ -36,8 +36,8 @@ function cluster(domain: ArticleDomain, daysAgo: number, baseScore: number, over
     baseScore,
     tags: ["alpha", "beta", "gamma"],
     sources: [
-      { name: "TechCrunch", hoursAgo: daysAgo * 24, summary: "First report.", reputability: 5, reach: 5, composite: 4, url: "https://tc.example/x" },
-      { name: "Reuters Tech", hoursAgo: daysAgo * 24 + 6, summary: "Follow-up.", reputability: 5, reach: 5, composite: 4 },
+      { name: "TechCrunch", hoursAgo: daysAgo * 24, headline: "First report headline", summary: "First report.", reputability: 5, reach: 5, composite: 4, url: "https://tc.example/x" },
+      { name: "Reuters Tech", hoursAgo: daysAgo * 24 + 6, headline: "Follow-up headline", summary: "Follow-up.", reputability: 5, reach: 5, composite: 4 },
     ],
     ...overrides,
   };
@@ -112,6 +112,11 @@ describe("buildTrends", () => {
     expect(e.sources).toBe(2); // two distinct outlets
     // Reporting is oldest-first.
     expect(e.reporting[0].src).toBe("Reuters Tech");
+    // Each reporting line shows that source's own article headline, not its
+    // raw feed summary/description — some feeds (e.g. hnrss.org) put
+    // meaningless boilerplate ("Article URL: ... Comments URL: ...") in the
+    // description, but the title is reliable across virtually every feed.
+    expect(e.reporting[0].headline).toBe("Follow-up headline");
   });
 
   it("uses the cluster impact score for impact when present, else base score", () => {

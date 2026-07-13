@@ -29,7 +29,7 @@ function story(overrides: Partial<PulseStory> = {}): PulseStory {
     importance: 3,
     tags: [],
     baseScore: 5,
-    sources: [{ name: "TechCrunch", hoursAgo: 24, summary: "Summary", reputability: 4, reach: 5, composite: 3 }],
+    sources: [{ name: "TechCrunch", hoursAgo: 24, headline: "Title", summary: "Summary", reputability: 4, reach: 5, composite: 3 }],
     ...overrides,
   };
 }
