@@ -20,25 +20,22 @@ import { PulseHero } from "@/components/pulse/PulseHero";
 import { StoryRow, type RowItem, type RowViewModel } from "@/components/pulse/StoryRow";
 import { TrendsView } from "@/components/pulse/TrendsView";
 import { buildTrends } from "@/lib/trends";
-import { WeeklyBrief } from "@/components/pulse/WeeklyBrief";
 import { StoryModal } from "@/components/pulse/StoryModal";
 import { SettingsModal } from "@/components/pulse/SettingsModal";
 import { useThemeOverrides } from "@/components/pulse/useThemeOverrides";
 
-type Page = "foryou" | "all" | "trends" | "brief";
+type Page = "foryou" | "all" | "trends";
 
 const PAGE_TITLE: Record<Page, string> = {
   foryou: "For You",
   all: "All Domains",
   trends: "Trends",
-  brief: "Weekly Brief",
 };
 
 const PAGE_SUB: Record<Page, string> = {
   foryou: "Your domains · sorted by personalized score",
   all: "Every domain we track · nothing filtered",
   trends: "Top signals across all domains · by personalized score",
-  brief: "Synthesized from cached articles",
 };
 
 function openExternal(url?: string) {
@@ -51,7 +48,6 @@ export function PulseClient() {
   const {
     stories,
     rankedStories,
-    brief,
     cache,
     newSinceRefreshAt,
     refreshing,
@@ -259,7 +255,6 @@ export function PulseClient() {
       { key: "foryou", label: "Dashboard" },
       { key: "all", label: "All Domains" },
       { key: "trends", label: "Trends" },
-      { key: "brief", label: "Brief" },
     ];
     const items: NavItemVM[] = base.map((n) => ({
       key: n.key,
@@ -300,7 +295,7 @@ export function PulseClient() {
         },
         onClick: () => {
           if (!followed[d]) return;
-          if (page === "trends" || page === "brief") {
+          if (page === "trends") {
             setPage("foryou");
             setTimeout(() => scrollToRow(d), 80);
           } else {
@@ -418,10 +413,6 @@ export function PulseClient() {
               {rows.map((row) => (
                 <StoryRow key={row.key} row={row} registerSection={registerSection} />
               ))}
-
-              {page === "brief" ? (
-                <WeeklyBrief signalParagraph={brief.signalParagraph} insights={brief.insights} />
-              ) : null}
             </div>
           </>
         )}
