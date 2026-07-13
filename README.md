@@ -1,6 +1,6 @@
-# Tech Intelligence Command Center
+# TANJ
 
-Local-first tech intelligence dashboard built with Next.js.
+Locally-running dashboard for emerging tech news.
 
 ## Current UI: PULSE
 
