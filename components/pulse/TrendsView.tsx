@@ -537,28 +537,29 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                       cardRefs.current[e.id] = el;
                     }}
                     className="pulse-trend-card"
-                    role="button"
-                    tabIndex={0}
-                    aria-expanded={isExpanded}
-                    onClick={() => setExpanded((cur) => (cur === e.id ? null : e.id))}
-                    onKeyDown={(ev) => {
-                      if (ev.key === "Enter" || ev.key === " ") {
-                        ev.preventDefault();
-                        setExpanded((cur) => (cur === e.id ? null : e.id));
-                      }
-                    }}
                     style={{
                       background: "#171F2C",
                       border: "1px solid rgba(255,255,255,0.08)",
                       borderRadius: 12,
                       padding: "18px 20px",
                       marginBottom: 16,
-                      cursor: "pointer",
                       transition: "transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease",
-                      outline: "none",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                    <div
+                      className="pulse-trend-card-toggle"
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isExpanded}
+                      onClick={() => setExpanded((cur) => (cur === e.id ? null : e.id))}
+                      onKeyDown={(ev) => {
+                        if (ev.key === "Enter" || ev.key === " ") {
+                          ev.preventDefault();
+                          setExpanded((cur) => (cur === e.id ? null : e.id));
+                        }
+                      }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, cursor: "pointer", outline: "none" }}
+                    >
                       <h3
                         style={{
                           margin: 0,

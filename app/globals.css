@@ -148,8 +148,12 @@ a:hover {
 }
 
 /* ── Trends page (chart + timeline) ────────────────────────────────── */
-.pulse-trend-card:hover,
-.pulse-trend-card:focus-visible {
+/* Only the header row (.pulse-trend-card-toggle) is actually clickable —
+   the card itself lifts/glows via :has() so the whole card still reads as
+   "this card can expand" without the rest of its body being a false hit
+   target for the toggle. */
+.pulse-trend-card:has(.pulse-trend-card-toggle:hover),
+.pulse-trend-card:has(.pulse-trend-card-toggle:focus-visible) {
   transform: translateY(-3px);
   border-color: rgba(255, 255, 255, 0.2) !important;
   box-shadow: 0 18px 46px rgba(0, 0, 0, 0.5);
