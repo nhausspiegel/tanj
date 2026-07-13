@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { PULSE_ACCENT } from "@/lib/pulse";
 import type { PulseRefreshProgress } from "@/components/pulse/usePulseData";
 
@@ -56,6 +56,7 @@ export function PulseSidebar({
   onRefresh: () => void;
   onOpenSettings: () => void;
 }) {
+  const [topicsOpen, setTopicsOpen] = useState(true);
   const progressPct =
     refreshProgress && refreshProgress.total > 0
       ? Math.min(100, Math.round((refreshProgress.processed / refreshProgress.total) * 100))
@@ -71,7 +72,8 @@ export function PulseSidebar({
         flexShrink: 0,
         display: "flex",
         flexDirection: "column",
-        borderRight: "1px solid rgba(255,255,255,0.07)",
+        background: "#0F1622",
+        borderRight: "1px solid rgba(255,255,255,0.06)",
         padding: "26px 18px 18px",
         overflowY: "auto",
       }}
@@ -195,7 +197,31 @@ export function PulseSidebar({
         ))}
       </nav>
 
-      <div style={{ ...microHeader, padding: "0 12px", marginBottom: 8 }}>Topics</div>
+      <button
+        className="pulse-soft"
+        onClick={() => setTopicsOpen((v) => !v)}
+        aria-expanded={topicsOpen}
+        style={{
+          ...microHeader,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          width: "100%",
+          padding: "4px 12px",
+          marginBottom: 8,
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          fontFamily: "inherit",
+        }}
+      >
+        <span>Topics</span>
+        <span style={{ fontSize: 9, color: "#66646f", transform: topicsOpen ? "none" : "rotate(-90deg)", transition: "transform 0.2s ease" }}>
+          ▾
+        </span>
+      </button>
+      {topicsOpen ? (
+        <>
       <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
         {topics.map((t) => (
           <div
@@ -276,6 +302,8 @@ export function PulseSidebar({
           <div style={{ ...microHeader, marginBottom: 6 }}>More domains</div>
           <div style={{ fontSize: 11, lineHeight: 1.7, color: "#55535e" }}>{moreDomains}</div>
         </div>
+      ) : null}
+        </>
       ) : null}
 
       <div style={{ marginTop: "auto", paddingTop: 22 }}>

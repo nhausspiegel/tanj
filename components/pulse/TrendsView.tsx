@@ -88,9 +88,9 @@ export function TrendsView({ model }: { model: TrendsModel }) {
 
   if (domains.length === 0) {
     return (
-      <div style={{ background: "#08080C", minHeight: "100%", color: "#e8e6e1" }}>
+      <div style={{ background: "#0C121C", minHeight: "100%", color: "#F7F3E6" }}>
         <section style={{ padding: "34px 44px" }}>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 900, letterSpacing: "-0.02em", color: "#fff" }}>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 900, letterSpacing: "-0.02em", color: "#F7F3E6" }}>
             Trends
           </h1>
           <div style={{ fontSize: 12, fontWeight: 600, color: "#8a8894", margin: "4px 0 0" }}>
@@ -118,10 +118,10 @@ export function TrendsView({ model }: { model: TrendsModel }) {
   }
 
   return (
-    <div style={{ background: "#08080C", minHeight: "100%", color: "#e8e6e1", fontFamily: "'Archivo', inherit" }}>
+    <div style={{ background: "#0C121C", minHeight: "100%", color: "#F7F3E6", fontFamily: "'Archivo', inherit" }}>
       {/* ── Chart section ──────────────────────────────────────────── */}
       <section style={{ padding: "34px 44px 10px" }}>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 900, letterSpacing: "-0.02em", color: "#fff" }}>
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 900, letterSpacing: "-0.02em", color: "#F7F3E6" }}>
           Trends
         </h1>
         <div style={{ fontSize: 12, fontWeight: 600, color: "#8a8894", margin: "4px 0 0" }}>
@@ -144,7 +144,7 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                   gap: 8,
                   background: active ? "rgba(255,255,255,0.07)" : "transparent",
                   border: `1px solid ${active ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.1)"}`,
-                  color: active ? "#ffffff" : "#8a8894",
+                  color: active ? "#F7F3E6" : "#8a8894",
                   fontFamily: "inherit",
                   fontSize: 12,
                   fontWeight: 700,
@@ -165,7 +165,7 @@ export function TrendsView({ model }: { model: TrendsModel }) {
         <div
           style={{
             position: "relative",
-            background: "#0d0d13",
+            background: "#171F2C",
             border: "1px solid rgba(255,255,255,0.07)",
             borderRadius: 14,
             padding: "22px 18px 10px",
@@ -198,7 +198,29 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                     .trim();
                   const active = d.key === selKey;
                   return (
-                    <g key={d.key} style={{ opacity: active ? 1 : 0.28, transition: "opacity 0.45s ease" }}>
+                    <g
+                      key={d.key}
+                      className="pulse-trend-line"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Show ${d.label} trend`}
+                      onClick={() => pickDomain(d.key)}
+                      onKeyDown={(ev) => {
+                        if (ev.key === "Enter" || ev.key === " ") {
+                          ev.preventDefault();
+                          pickDomain(d.key);
+                        }
+                      }}
+                      style={{ opacity: active ? 1 : 0.28, transition: "opacity 0.45s ease", cursor: "pointer", outline: "none" }}
+                    >
+                      {/* Wide invisible hit target so the thin dashed line is easy to click. */}
+                      <path
+                        d={pathFor(d.values, 0, 6)}
+                        fill="none"
+                        stroke="transparent"
+                        strokeWidth="16"
+                        style={{ pointerEvents: "stroke" }}
+                      />
                       <path
                         className="trends-line"
                         d={pathFor(d.values, 0, 6)}
@@ -255,7 +277,7 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                       cx={p.x}
                       cy={p.y}
                       r={r}
-                      fill="#0d0d13"
+                      fill="#171F2C"
                       stroke={d.color}
                       strokeWidth="2.4"
                       style={{ transition: "r 0.2s ease" }}
@@ -273,7 +295,7 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                   left: `${((hoveredPoint.x / 1000) * 100).toFixed(1)}%`,
                   top: `${((hoveredPoint.y / 330) * 100).toFixed(1)}%`,
                   transform: "translate(-50%, -112%)",
-                  background: "#16161f",
+                  background: "#1E273A",
                   border: "1px solid rgba(255,255,255,0.14)",
                   borderRadius: 9,
                   padding: "11px 14px",
@@ -286,7 +308,7 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                 <div style={{ ...microLabel, color: hoveredDomain.color, marginBottom: 4 }}>
                   {hoveredDomain.label} · {days[hovered.dayIndex]}
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.3, color: "#fff", marginBottom: 7 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.3, color: "#F7F3E6", marginBottom: 7 }}>
                   {hovered.title}
                 </div>
                 <div style={{ display: "flex", gap: 12, fontSize: 11, color: "#8a8894", fontFamily: mono }}>
@@ -320,7 +342,7 @@ export function TrendsView({ model }: { model: TrendsModel }) {
               display: "flex",
               alignItems: "center",
               gap: 7,
-              background: "rgba(8,8,12,0.6)",
+              background: "rgba(12,18,28,0.6)",
               border: "1px solid rgba(255,255,255,0.1)",
               borderRadius: 14,
               padding: "5px 12px",
@@ -393,7 +415,7 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                         width: 11,
                         height: 11,
                         borderRadius: "50%",
-                        background: "#0d0d13",
+                        background: "#0C121C",
                         border: `2.4px solid ${selColor}`,
                         boxShadow: `0 0 10px ${withAlpha(selColor, 0.35)}`,
                       }}
@@ -416,7 +438,7 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                       }
                     }}
                     style={{
-                      background: "#111118",
+                      background: "#171F2C",
                       border: "1px solid rgba(255,255,255,0.08)",
                       borderRadius: 12,
                       padding: "18px 20px",

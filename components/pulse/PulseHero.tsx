@@ -24,7 +24,7 @@ export function PulseHero({
   const hero = heroes[index] ?? heroes[0];
 
   return (
-    <section style={{ position: "relative", height: "56vh", minHeight: 400, overflow: "hidden" }}>
+    <section style={{ position: "relative", height: "44vh", minHeight: 360, overflow: "hidden" }}>
       {heroes.map((h, i) => (
         <div
           key={h.id}
@@ -34,7 +34,7 @@ export function PulseHero({
             background:
               `radial-gradient(110% 150% at 78% 8%, hsla(${domainHue(h.domain)},65%,42%,0.5), transparent 58%), ` +
               `radial-gradient(90% 120% at 15% 100%, hsla(${HERO_HUE},70%,30%,0.35), transparent 55%), ` +
-              `linear-gradient(160deg, #171720 15%, #131A25 75%)`,
+              `linear-gradient(160deg, #14141d 15%, #0C121C 75%)`,
             opacity: i === index ? 1 : 0,
             transition: "opacity 1.1s ease",
           }}
@@ -46,7 +46,7 @@ export function PulseHero({
           position: "absolute",
           inset: 0,
           background:
-            "linear-gradient(180deg, rgba(19,26,37,0) 40%, rgba(19,26,37,0.92) 92%), linear-gradient(90deg, rgba(19,26,37,0.55) 0%, rgba(19,26,37,0) 55%)",
+            "linear-gradient(180deg, rgba(12,18,28,0) 40%, rgba(12,18,28,0.92) 92%), linear-gradient(90deg, rgba(12,18,28,0.55) 0%, rgba(12,18,28,0) 55%)",
         }}
       />
 
@@ -83,12 +83,16 @@ export function PulseHero({
         <h1
           style={{
             margin: "0 0 14px",
-            fontSize: "clamp(30px,3.3vw,48px)",
-            lineHeight: 1.04,
+            fontSize: "clamp(28px,3vw,44px)",
+            lineHeight: 1.06,
             fontWeight: 900,
             letterSpacing: "-0.025em",
             color: "#F7F3E6",
             textWrap: "balance",
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
           }}
         >
           {hero.title}
@@ -101,6 +105,10 @@ export function PulseHero({
             color: "#c9c7d0",
             maxWidth: 600,
             textWrap: "pretty",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
           }}
         >
           {hero.tldr}
@@ -116,34 +124,33 @@ export function PulseHero({
               fontFamily: "inherit",
               fontSize: 14,
               fontWeight: 800,
-              padding: "12px 22px",
+              padding: "12px 26px",
               borderRadius: 6,
               cursor: "pointer",
               letterSpacing: "0.01em",
             }}
           >
-            Read story
+            Read
           </button>
           <button
             className="pulse-glass-btn"
             onClick={onSave}
+            aria-label={saved ? "Remove from My Likes" : "Add to My Likes"}
+            title={saved ? "Liked" : "Like"}
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: 8,
+              justifyContent: "center",
+              width: 44,
+              height: 44,
               background: saved ? PULSE_ACCENT : "rgba(255,255,255,0.09)",
               color: saved ? "#131A25" : "#F7F3E6",
               border: `1px solid ${saved ? PULSE_ACCENT : "rgba(255,255,255,0.18)"}`,
-              fontFamily: "inherit",
-              fontSize: 14,
-              fontWeight: 700,
-              padding: "11px 20px",
               borderRadius: 6,
               cursor: "pointer",
             }}
           >
             <HeartIcon filled={saved} />
-            {saved ? "Liked" : "Like"}
           </button>
         </div>
       </div>

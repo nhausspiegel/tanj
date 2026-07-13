@@ -166,9 +166,11 @@ function hashId(id: string): number {
 // the highlight side so a row of cards doesn't look uniform.
 export function thumbGradient(hue: number, i: number): string {
   const h2 = (hue + 34) % 360;
+  // Muted: low-saturation, low-alpha so the domain hue reads as a subtle tint
+  // over the navy rather than a saturated color block.
   return (
-    `radial-gradient(120% 130% at ${i % 2 ? 85 : 15}% 0%, hsla(${hue},60%,48%,0.45), transparent 55%), ` +
-    `linear-gradient(145deg, hsl(${hue},38%,20%) 0%, hsl(${h2},45%,10%) 80%)`
+    `radial-gradient(120% 130% at ${i % 2 ? 85 : 15}% 0%, hsla(${hue},40%,46%,0.24), transparent 58%), ` +
+    `linear-gradient(145deg, hsl(${hue},24%,15%) 0%, hsl(${h2},26%,9%) 80%)`
   );
 }
 

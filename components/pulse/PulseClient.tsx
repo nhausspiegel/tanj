@@ -36,7 +36,7 @@ const PAGE_TITLE: Record<Page, string> = {
 
 const PAGE_SUB: Record<Page, string> = {
   foryou: "",
-  all: "Every domain we track · nothing filtered",
+  all: "",
   trends: "Top signals across all domains · by personalized score",
   mylikes: "",
 };
@@ -320,7 +320,7 @@ export function PulseClient() {
       style={{
         display: "flex",
         height: "100vh",
-        background: "#131A25",
+        background: "#0C121C",
         color: "#F7F3E6",
         overflow: "hidden",
       }}

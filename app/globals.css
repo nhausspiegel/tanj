@@ -16,7 +16,7 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: #131A25;
+  background: #0C121C;
   color: #F7F3E6;
   font-family: var(--font-archivo), "Archivo", sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -159,6 +159,13 @@ a:hover {
 }
 .trends-node:focus-visible circle:nth-child(2) {
   stroke-width: 3.4;
+}
+.pulse-trend-line {
+  cursor: pointer;
+}
+.pulse-trend-line:hover,
+.pulse-trend-line:focus-visible {
+  filter: brightness(1.3);
 }
 @keyframes trendsReveal {
   from { clip-path: inset(0 100% 0 0); }

@@ -90,27 +90,15 @@ function ScoreBadge({ scoreValue, breakdown }: { scoreValue: number; breakdown?:
         alignItems: "center",
         lineHeight: 1,
         background: "rgba(19,26,37,0.65)",
-        border: "1px solid rgba(74,208,122,0.35)",
+        border: "1px solid rgba(222,244,120,0.35)",
         backdropFilter: "blur(6px)",
         borderRadius: 8,
         padding: "5px 9px",
         cursor: "default",
       }}
     >
-      <span style={{ fontSize: 15, fontWeight: 900, color: "#4AD07A", letterSpacing: "-0.02em" }}>
+      <span style={{ fontSize: 16, fontWeight: 900, color: PULSE_ACCENT_HIGHLIGHT, letterSpacing: "-0.02em" }}>
         {scoreValue.toFixed(1)}
-      </span>
-      <span
-        style={{
-          fontSize: 7.5,
-          fontWeight: 800,
-          letterSpacing: "0.12em",
-          textTransform: "uppercase",
-          color: "rgba(74,208,122,0.65)",
-          marginTop: 1,
-        }}
-      >
-        score
       </span>
       {hovered && breakdown ? (
         <div
