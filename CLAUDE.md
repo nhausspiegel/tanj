@@ -47,22 +47,46 @@ never touches `better-sqlite3`/`electron-rebuild`.
   story/cluster** across sources (`clusterArticlesToStories`, built on
   `lib/clustering.ts`). This split was an explicit correction — don't
   collapse them back into one shared story list.
-- **Trends is a chart + timeline (redesigned 2026-07-12).**
-  `components/pulse/TrendsView.tsx` renders a 7-day per-domain activity chart
-  (dashed line per domain, glowing event nodes) over a click-to-expand event
-  timeline. Data derivation lives in `lib/trends.ts` (`buildTrends`): chart
-  lines = daily article counts per domain (top 5 by activity, own `domainHue`
-  color, normalized to a ~78 peak); events = top clusters by base score. It's
-  self-contained — nodes/cards expand in place, it does NOT open `StoryModal`.
-  This replaced the old `TrendsGrid` ranked list and supersedes the earlier
-  "wire the pattern-engine into the existing Trends UI" plan. Seed/web mode
-  shows a real chart because `SEED_STORIES` now carry parsed timestamps, but
-  events read "1 article/1 source" there (seed stories aren't truly clustered).
-  Those seed timestamps use a **fixed** `SEED_REFERENCE` constant, not
+- **Trends is a chart + timeline (redesigned 2026-07-12, re-derived
+  2026-07-13).** `components/pulse/TrendsView.tsx` renders a 7-day
+  per-domain impact chart (dashed line per domain, glowing event nodes) over
+  a click-to-expand event timeline. Data derivation lives in `lib/trends.ts`
+  (`buildTrends`): chart lines = **daily peak cluster impact**, not raw
+  article volume — a domain/day's line value is just that day's single
+  biggest cluster's impact (not a sum or decayed combination of same-day
+  clusters), so "tall" means "the biggest thing that happened that day,"
+  never "we published a lot that day." Line height is scaled against a
+  **fixed** `MAX_IMPACT` (10) ceiling — the same clamp every impact score
+  in the app already uses (`lib/scoring.ts`, `lib/pulse.ts`) — not the
+  week's own busiest day, so a quiet week's best story doesn't visually
+  fill the chart the same as a huge news week's; y-axis gridlines are real
+  integer impact numbers (2/4/6/8/10) on that same scale. `TrendEvent.impact`
+  is likewise the real 1–10 score, not a halved 1–5 — there's no reason for
+  Trends to use a different scale than the rest of the app. Domain
+  selection (top 5) and event selection (top `EVENTS_PER_DOMAIN` per
+  domain) are both driven off cluster-impact data, not article counts.
+  Event selection also caps at **one event per (domain, day)** — a line
+  chart has exactly one y-position per day, so two same-day events for one
+  domain has no correct rendering (either both get the day's one line
+  height, misrepresenting whichever isn't the actual peak, or each gets its
+  own height and the non-peak one renders visibly off the line). Capping to
+  one per day removes the conflict instead of patching around it: the
+  event shown for a day is always that day's peak, so its node always
+  lands exactly on the line, guaranteed, not just in the common case. The
+  loser in a same-day tie is dropped from Trends only, not from the app —
+  it's a "one flagship story per day" surface, not exhaustive coverage.
+  `articleStories` is only used to anchor the window's reference timestamp
+  now, not for chart data. It's self-contained — nodes/cards expand in
+  place, it does NOT open `StoryModal`. This replaced the old `TrendsGrid`
+  ranked list and supersedes the earlier "wire the pattern-engine into the
+  existing Trends UI" plan. Seed/web mode shows a real chart because
+  `SEED_STORIES` now carry parsed timestamps, but events read "1
+  article/1 source" there (seed stories aren't truly clustered). Those
+  seed timestamps use a **fixed** `SEED_REFERENCE` constant, not
   `Date.now()` — a wall-clock there differs between SSR and hydration and
-  mismatches the card date tooltips. `buildTrends` likewise anchors its window
-  to the newest story (not `Date.now()`) when no `now` is passed, so it stays
-  deterministic across SSR/hydration. Keep both time-free.
+  mismatches the card date tooltips. `buildTrends` likewise anchors its
+  window to the newest story (not `Date.now()`) when no `now` is passed,
+  so it stays deterministic across SSR/hydration. Keep both time-free.
 - Outlet trust metadata (reputability/reach, used for the story-detail
   modal's source meters and for ordering multi-source stories) lives in
   `lib/outlets.ts`. Add new outlets there as needed; unknown outlets fall

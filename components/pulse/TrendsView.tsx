@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { ArticleDomain } from "@/lib/types";
-import type { TrendEvent, TrendsModel } from "@/lib/trends";
+import { MAX_IMPACT, NORM_MAX, type TrendEvent, type TrendsModel } from "@/lib/trends";
 
 // ── Chart geometry ────────────────────────────────────────────────────
 // Symmetric left/right gutters inside the 1000-wide viewBox so the 7 days
@@ -88,7 +88,11 @@ function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
 
-const GRID_Y = [296, 224, 152, 80];
+// Integer impact gridlines (2,4,6,8,10) — chart values (0–NORM_MAX) are
+// scaled against the fixed MAX_IMPACT ceiling, so these are real impact
+// numbers, the same scale shown on every event's IMPACT label.
+const IMPACT_TICKS = [2, 4, 6, 8, 10];
+const GRID_Y = IMPACT_TICKS.map((n) => chartXY(0, (n / MAX_IMPACT) * NORM_MAX).y);
 
 const microLabel: CSSProperties = {
   fontSize: 10,
@@ -107,7 +111,23 @@ export function TrendsView({ model }: { model: TrendsModel }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // Keep the selected domain valid as data re-ranks; default to most active.
+  // The entrance animations (trends-reveal/trends-line/trends-node) are a
+  // one-time "data just loaded" flourish, not something that should replay
+  // on every domain click. But clicking a domain re-sorts drawDomains/
+  // drawEvents below (selected domain drawn last, so it wins overlapping
+  // hit-tests) — and moving an SVG element to a new DOM position restarts
+  // its CSS animation in most browsers, regardless of React key stability.
+  // So once the initial reveal has had time to finish, strip the animation
+  // classes/delays entirely — after that, reordering is just a silent DOM
+  // move with no animation left to restart. 4.5s covers the slowest case
+  // (line reveal: up to 4 domains * 0.7s delay + 1.6s duration).
+  const [revealDone, setRevealDone] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setRevealDone(true), 4500);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Keep the selected domain valid as data re-ranks; default to most impactful.
   const selKey: ArticleDomain | null = useMemo(() => {
     if (selected && domains.some((d) => d.key === selected)) return selected;
     return domains[0]?.key ?? null;
@@ -119,6 +139,20 @@ export function TrendsView({ model }: { model: TrendsModel }) {
 
   const selEvents = useMemo(
     () => events.filter((e) => e.domainKey === selKey).sort((a, b) => a.dayIndex - b.dayIndex),
+    [events, selKey],
+  );
+
+  // Draw order for the SVG: the selected domain's line and nodes last, so
+  // they paint on top of (and win hit-testing/hover over) any other
+  // domain's overlapping line or node near the same point — otherwise
+  // whichever happened to be later in the original array could sit above
+  // and silently swallow clicks meant for the one you're trying to reach.
+  const drawDomains = useMemo(
+    () => [...domains].sort((a, b) => (a.key === selKey ? 1 : 0) - (b.key === selKey ? 1 : 0)),
+    [domains, selKey],
+  );
+  const drawEvents = useMemo(
+    () => [...events].sort((a, b) => (a.domainKey === selKey ? 1 : 0) - (b.domainKey === selKey ? 1 : 0)),
     [events, selKey],
   );
 
@@ -228,9 +262,31 @@ export function TrendsView({ model }: { model: TrendsModel }) {
         >
           <div style={{ position: "relative" }}>
             <svg viewBox="0 0 1000 330" style={{ display: "block", width: "100%", height: "auto" }}>
-              {GRID_Y.map((y) => (
-                <line key={y} x1={CHART_LEFT} x2={CHART_RIGHT} y1={y} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+              {IMPACT_TICKS.map((n, i) => (
+                <g key={n}>
+                  <line x1={CHART_LEFT} x2={CHART_RIGHT} y1={GRID_Y[i]} y2={GRID_Y[i]} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+                  <text
+                    x={CHART_LEFT - 8}
+                    y={GRID_Y[i]}
+                    dy="3.5"
+                    textAnchor="end"
+                    fill="#66646f"
+                    style={{ fontFamily: mono, fontSize: 10 }}
+                  >
+                    {n}
+                  </text>
+                </g>
               ))}
+              <text
+                x="14"
+                y={((GRID_Y[0] + GRID_Y[GRID_Y.length - 1]) / 2).toFixed(0)}
+                textAnchor="middle"
+                fill="#66646f"
+                transform={`rotate(-90 14 ${((GRID_Y[0] + GRID_Y[GRID_Y.length - 1]) / 2).toFixed(0)})`}
+                style={{ fontFamily: mono, fontSize: 10, letterSpacing: "0.08em" }}
+              >
+                IMPACT
+              </text>
               {days.map((label, i) => (
                 <text
                   key={label + i}
@@ -244,8 +300,8 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                 </text>
               ))}
 
-              <g className="trends-reveal">
-                {domains.map((d, di) => {
+              <g className={revealDone ? undefined : "trends-reveal"}>
+                {drawDomains.map((d, di) => {
                   const active = d.key === selKey;
                   return (
                     <g
@@ -272,30 +328,33 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                         style={{ pointerEvents: "stroke" }}
                       />
                       <path
-                        className="trends-line"
+                        className={revealDone ? undefined : "trends-line"}
                         d={fullPath(d.values)}
                         fill="none"
                         stroke={d.color}
                         strokeWidth="2"
                         strokeDasharray="5 6"
                         strokeLinecap="round"
-                        style={{ animationDelay: `${di * 0.7}s` }}
+                        style={revealDone ? undefined : { animationDelay: `${di * 0.7}s` }}
                       />
                     </g>
                   );
                 })}
               </g>
 
-              {events.map((e, i) => {
+              {drawEvents.map((e, i) => {
                 const d = domByKey.get(e.domainKey);
                 if (!d) return null;
+                // Events are capped to one per (domain, day) in
+                // lib/trends.ts, so the shown event for a day is always
+                // exactly that day's line value — always lands on the line.
                 const p = chartXY(e.dayIndex, d.values[e.dayIndex] ?? 0);
                 const r = hoverEvent === e.id ? 8 : 6;
                 const active = d.key === selKey;
                 return (
                   <g
                     key={e.id}
-                    className="trends-node"
+                    className={revealDone ? undefined : "trends-node"}
                     role="button"
                     tabIndex={0}
                     aria-label={`${d.label}: ${e.title}. Impact ${e.impact}. Open story.`}
@@ -312,12 +371,17 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                     onBlur={() => setHoverEvent((h) => (h === e.id ? null : h))}
                     style={{
                       cursor: "pointer",
-                      animationDelay: `${1.2 + i * 0.12}s`,
+                      ...(revealDone ? null : { animationDelay: `${1.2 + i * 0.12}s` }),
                       outline: "none",
                       opacity: active || hoverEvent === e.id ? 1 : 0.28,
                       transition: "opacity 0.45s ease",
                     }}
                   >
+                    {/* Invisible, larger than the visible dot — a precise
+                        r=6 target is easy to miss/misclick onto a nearby
+                        node, especially since two close nodes can't both be
+                        made bigger without overlapping even more. */}
+                    <circle cx={p.x} cy={p.y} r="14" fill="transparent" style={{ pointerEvents: "all" }} />
                     <circle className="trends-node-glow" cx={p.x} cy={p.y} r="16" fill={withAlpha(d.color, 0.16)} />
                     <circle
                       cx={p.x}
@@ -512,8 +576,17 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                         {isExpanded ? "▴ collapse" : "▾ expand"}
                       </span>
                     </div>
-                    <p style={{ margin: "0 0 12px", fontSize: 13, lineHeight: 1.6, color: "#a5a3ae", textWrap: "pretty" }}>
-                      {e.blurb}
+                    <p
+                      style={{
+                        margin: "0 0 12px",
+                        fontSize: 13,
+                        lineHeight: 1.6,
+                        color: e.blurbIsAi ? "#a5a3ae" : "#66646f",
+                        fontStyle: e.blurbIsAi ? "normal" : "italic",
+                        textWrap: "pretty",
+                      }}
+                    >
+                      {e.blurbIsAi ? e.blurb : "Summary not yet generated for this article."}
                     </p>
                     <div
                       style={{
