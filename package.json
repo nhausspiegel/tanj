@@ -9,6 +9,7 @@
     "node": ">=20 <23"
   },
   "scripts": {
+    "preinstall": "node scripts/check-node-arch.cjs",
     "dev": "next dev --experimental-https",
     "dev:web": "next dev --port 3000",
     "dev:web:desktop": "ELECTRON_RENDERER_MODE=desktop next dev --port 3000",
