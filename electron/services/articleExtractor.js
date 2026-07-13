@@ -285,12 +285,19 @@ function sleep(ms) {
 
 // Trims to a sentence boundary near maxChars so the excerpt doesn't cut off
 // mid-word; falls back to a hard cut if no boundary is found early enough.
+// An excerpt is always a partial quote from a longer article, so whenever
+// real truncation happens (the source text was longer than maxChars) this
+// ends with an ellipsis — consistently, not just when the cut happened to
+// land mid-word, so the excerpt never reads as if it were the whole story.
 function excerptFrom(text, maxChars) {
+  if (text.length <= maxChars) {
+    return text;
+  }
+
   const slice = text.slice(0, maxChars + 200);
   const lastPeriod = slice.lastIndexOf(". ");
-  return lastPeriod > maxChars * 0.5
-    ? slice.slice(0, lastPeriod + 1)
-    : slice.slice(0, maxChars);
+  const cut = lastPeriod > maxChars * 0.5 ? slice.slice(0, lastPeriod) : slice.slice(0, maxChars);
+  return `${cut.trimEnd().replace(/[.,;:!?]+$/, "")}…`;
 }
 
 /**

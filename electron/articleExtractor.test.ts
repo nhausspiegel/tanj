@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
 const {
+  excerptFrom,
   extractArticleText,
   extractArticleTextHeuristic,
   extractOgImage,
@@ -167,5 +168,27 @@ describe("extractOgImage", () => {
   it("returns null when neither meta tag is present", () => {
     const html = `<html><head><title>No image here</title></head></html>`;
     expect(extractOgImage(html, "https://example.com/article")).toBe(null);
+  });
+});
+
+describe("excerptFrom", () => {
+  it("returns short text unchanged, no ellipsis, when nothing was cut", () => {
+    const text = "A short sentence.";
+    expect(excerptFrom(text, 500)).toBe(text);
+  });
+
+  it("ends with an ellipsis when it lands on a clean sentence boundary", () => {
+    const text = "First sentence here. " + "Padding word ".repeat(40) + "Last sentence in range. " + "More text after that keeps going on.";
+    const result = excerptFrom(text, 60);
+    expect(result.endsWith("…")).toBe(true);
+    expect(result.endsWith(".…")).toBe(false); // no double punctuation
+  });
+
+  it("ends with an ellipsis when it has to hard-cut mid-word/mid-sentence", () => {
+    // No period anywhere near the cutoff, forcing the hard-cut branch.
+    const text = "word ".repeat(200);
+    const result = excerptFrom(text, 50);
+    expect(result.endsWith("…")).toBe(true);
+    expect(result.length).toBeLessThanOrEqual(51); // 50 chars + the ellipsis
   });
 });
