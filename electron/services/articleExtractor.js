@@ -338,8 +338,13 @@ async function enrichArticlesWithFullText(articles, {
           // rather than only a generated summary.
           excerpt: excerptFrom(fullText, 500),
         };
-        // If the RSS summary was truncated (≤280 chars), upgrade it
-        if (!results[idx].summary || results[idx].summary.length < 300) {
+        // If the RSS summary was truncated (≤280 chars) or is itself garbled
+        // (e.g. leaked inline JS/markup from a broken feed), upgrade it.
+        if (
+          !results[idx].summary ||
+          results[idx].summary.length < 300 ||
+          !isLikelyArticleText(results[idx].summary)
+        ) {
           // Take first ~600 chars ending at a sentence boundary
           const upgraded = fullText.slice(0, 800);
           const lastPeriod = upgraded.lastIndexOf(". ");

@@ -103,7 +103,8 @@ export function PulseHero({
             margin: "0 0 22px",
             fontSize: 15.5,
             lineHeight: 1.55,
-            color: "#c9c7d0",
+            color: hero.tldrIsAi ? "#c9c7d0" : "#8a8894",
+            fontStyle: hero.tldrIsAi ? "normal" : "italic",
             maxWidth: 600,
             textWrap: "pretty",
             display: "-webkit-box",
@@ -112,7 +113,7 @@ export function PulseHero({
             overflow: "hidden",
           }}
         >
-          {hero.tldr}
+          {hero.tldrIsAi ? hero.tldr : "Summary not yet generated for this article."}
         </p>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button
