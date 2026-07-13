@@ -637,25 +637,30 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                                       {rp.t}
                                     </span>
                                     <span>
-                                      {rp.url ? (
-                                        <a
-                                          href={rp.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          onClick={(ev) => ev.stopPropagation()}
-                                          style={{
-                                            color: "#b5b3be",
-                                            fontWeight: 600,
-                                            textDecoration: "underline",
-                                            textDecorationColor: "rgba(255,255,255,0.25)",
-                                          }}
-                                        >
-                                          {rp.src}
-                                        </a>
-                                      ) : (
-                                        <span style={{ color: "#b5b3be", fontWeight: 600 }}>{rp.src}</span>
-                                      )}
-                                      {rp.headline ? <> — {rp.headline}</> : null}
+                                      <span style={{ color: "#b5b3be", fontWeight: 600 }}>{rp.src}</span>
+                                      {rp.headline ? (
+                                        <>
+                                          {" — "}
+                                          {rp.url ? (
+                                            <a
+                                              href={rp.url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              onClick={(ev) => ev.stopPropagation()}
+                                              style={{
+                                                color: "#b5b3be",
+                                                fontWeight: 400,
+                                                textDecoration: "underline",
+                                                textDecorationColor: "rgba(255,255,255,0.25)",
+                                              }}
+                                            >
+                                              {rp.headline}
+                                            </a>
+                                          ) : (
+                                            rp.headline
+                                          )}
+                                        </>
+                                      ) : null}
                                     </span>
                                   </div>
                                 ))}
