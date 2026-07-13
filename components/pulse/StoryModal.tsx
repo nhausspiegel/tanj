@@ -382,8 +382,6 @@ export function StoryModal({
             )}
             <span style={dot} />
             <span title={exactDateLabel(story.publishedAt) || undefined}>{story.timeAgo}</span>
-            <span style={dot} />
-            <span>IMP {story.importance}/5</span>
           </div>
           <div
             style={{
