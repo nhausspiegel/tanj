@@ -585,8 +585,8 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                         color: e.summaryIsAi ? "#a5a3ae" : "#66646f",
                         fontStyle: e.summaryIsAi ? "normal" : "italic",
                         textWrap: "pretty",
-                        // 2-line teaser; the full paragraph is under the
-                        // expanded "Why it matters" block below.
+                        // Clamped to 2 lines — this is the only place the
+                        // summary shows, collapsed or expanded.
                         display: "-webkit-box",
                         WebkitLineClamp: 2,
                         WebkitBoxOrient: "vertical",
@@ -624,21 +624,6 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                         }}
                       >
                         <div>
-                          <div style={{ ...microLabel, color: "#8a8894", marginBottom: 7 }}>Why it matters</div>
-                          <p
-                            style={{
-                              margin: "0 0 14px",
-                              fontSize: 13,
-                              lineHeight: 1.65,
-                              color: e.summaryIsAi ? "#c9c7d0" : "#66646f",
-                              fontStyle: e.summaryIsAi ? "normal" : "italic",
-                              borderLeft: `2px solid ${withAlpha(selColor, 0.4)}`,
-                              paddingLeft: 12,
-                              textWrap: "pretty",
-                            }}
-                          >
-                            {e.summaryIsAi ? e.summary : "Summary not yet generated for this event."}
-                          </p>
                           {e.reporting.length ? (
                             <>
                               <div style={{ ...microLabel, color: "#8a8894", marginBottom: 7 }}>Reporting timeline</div>
