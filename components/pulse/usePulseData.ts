@@ -99,6 +99,13 @@ export function usePulseData(): PulseData {
   const lastRefreshAtRef = useRef<string | null>(null);
   const progressReloadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastProgressReloadAtRef = useRef(0);
+  // Snapshotting cluster_history is only meaningful once a refresh has
+  // actually brought in new data — not on every mount/reload, and not on
+  // every trickle-in tick mid-refresh (the cluster composition is still
+  // settling then). This flag is set right before the one reload() call
+  // that represents "a refresh just completed," and consumed (reset) the
+  // next time loadData() runs, so only that one hydration writes a snapshot.
+  const shouldSnapshotRef = useRef(false);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
@@ -155,7 +162,8 @@ export function usePulseData(): PulseData {
         );
         setRankedStories(rankedMapped);
 
-        if (desktop.memory?.snapshotClusters) {
+        if (shouldSnapshotRef.current && desktop.memory?.snapshotClusters) {
+          shouldSnapshotRef.current = false;
           const dashboardSnapshots = mapped.map((s) =>
             articleToSnapshotCluster(articlesById.get(s.id)!, s.baseScore),
           );
@@ -236,9 +244,14 @@ export function usePulseData(): PulseData {
   useEffect(() => {
     const desktop = typeof window !== "undefined" ? window.desktop : undefined;
     if (!desktop?.jobs?.onRefreshComplete) return;
-    const unsubscribe = desktop.jobs.onRefreshComplete(() => {
+    const unsubscribe = desktop.jobs.onRefreshComplete((payload) => {
       setRefreshing(false);
       setRefreshProgress(null);
+      // A skipped or failed refresh brought in no new data — nothing to
+      // snapshot, just re-show whatever's already cached.
+      if (!payload?.skipped && payload?.success !== false) {
+        shouldSnapshotRef.current = true;
+      }
       if (!loadingRef.current) reload();
     });
     return () => {
