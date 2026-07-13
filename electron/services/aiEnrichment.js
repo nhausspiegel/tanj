@@ -183,13 +183,16 @@ async function checkAiAvailability(ollamaBaseUrl = OLLAMA_BASE_URL) {
   return aiAvailable;
 }
 
-async function callOllama(articles, tuning) {
+// ── Generic JSON-chat transports ─────────────────────────────────────
+// Each takes ready-built `messages` (system prompt as the first message, or,
+// for Anthropic, a separate `system` string) and returns parsed JSON. Shared
+// by article enrichment (callOllama/callOpenAI/callAnthropic below) and cluster
+// synthesis (synthesizeClusters) so both hit the exact same provider transport.
+
+async function chatOllama(messages, tuning) {
   const body = {
     model: tuning.model,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: buildUserPrompt(articles) },
-    ],
+    messages,
     stream: false,
     // Thinking models (e.g. gemma4) otherwise emit reasoning into a separate
     // `thinking` field and leave `content` empty, breaking extractJson below.
@@ -224,7 +227,7 @@ async function callOllama(articles, tuning) {
   return extractJson(payload.message?.content ?? "");
 }
 
-async function callOpenAI(articles, apiKey, tuning) {
+async function chatOpenAI(messages, apiKey, tuning) {
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -233,10 +236,7 @@ async function callOpenAI(articles, apiKey, tuning) {
     },
     body: JSON.stringify({
       model: OPENAI_MODEL,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildUserPrompt(articles) },
-      ],
+      messages,
       response_format: { type: "json_object" },
       temperature: tuning.temperature,
     }),
@@ -252,7 +252,7 @@ async function callOpenAI(articles, apiKey, tuning) {
   return extractJson(payload.choices?.[0]?.message?.content ?? "");
 }
 
-async function callAnthropic(articles, apiKey, tuning) {
+async function chatAnthropic(systemPrompt, userContent, apiKey, tuning) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -263,8 +263,8 @@ async function callAnthropic(articles, apiKey, tuning) {
     body: JSON.stringify({
       model: ANTHROPIC_MODEL,
       max_tokens: tuning.maxOutputTokens,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: buildUserPrompt(articles) }],
+      system: systemPrompt,
+      messages: [{ role: "user", content: userContent }],
       temperature: tuning.temperature,
     }),
     signal: AbortSignal.timeout(tuning.timeoutMs),
@@ -280,6 +280,32 @@ async function callAnthropic(articles, apiKey, tuning) {
     ? payload.content.find((block) => block.type === "text")
     : null;
   return extractJson(textBlock?.text ?? "");
+}
+
+// ── Article-enrichment callers (unchanged behavior) ──────────────────
+function callOllama(articles, tuning) {
+  return chatOllama(
+    [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: buildUserPrompt(articles) },
+    ],
+    tuning,
+  );
+}
+
+function callOpenAI(articles, apiKey, tuning) {
+  return chatOpenAI(
+    [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: buildUserPrompt(articles) },
+    ],
+    apiKey,
+    tuning,
+  );
+}
+
+function callAnthropic(articles, apiKey, tuning) {
+  return chatAnthropic(SYSTEM_PROMPT, buildUserPrompt(articles), apiKey, tuning);
 }
 
 /**
@@ -406,12 +432,169 @@ async function enrichArticlesWithAI(articles, options = {}) {
     }
   }
 
-  if (attemptedOllama && !KEEP_MODEL_LOADED) {
+  // Skip the unload when the caller will do more AI work right after (cluster
+  // synthesis) and unload once at the end — reloading the model mid-refresh is
+  // the exact ~5GB cost this pipeline is structured to avoid.
+  if (attemptedOllama && !KEEP_MODEL_LOADED && !options.keepModelLoaded) {
     await unloadModel(tuning);
   }
 
   console.log(`[ai-enrich] Enriched ${aiSuccessCount} articles via AI, ${aiFailCount} fell back to heuristics`);
   return results;
+}
+
+// ── Cluster synthesis ────────────────────────────────────────────────
+// A cluster is several outlets covering ONE event. The renderer's clustering
+// picks a lead member and shows its headline/summary verbatim — not a title
+// for the group. This synthesizes one headline + one "what & why" paragraph
+// per multi-source cluster, from all members.
+
+const CLUSTER_SYNTHESIS_SYSTEM_PROMPT = `You are a technology news editor. Each input is a cluster of articles from different outlets all covering the SAME real-world event. For each cluster:
+1. Write ONE clear, specific headline for the event as a whole — not a copy of any single article's headline, neutral and factual, at most ~14 words.
+2. Write a short paragraph (2-4 sentences) that says what the event is AND why it is impactful, synthesizing across the sources.
+Return ONLY valid JSON, no prose.`;
+
+function buildClusterSynthesisPrompt(clusters, articlesById) {
+  const items = clusters.map((cluster, i) => ({
+    id: String(i),
+    articles: (cluster.articleIds || [])
+      .map((id) => articlesById.get(id))
+      .filter(Boolean)
+      .slice(0, 6)
+      .map((a) => ({
+        headline: a.headline,
+        summary: (a.fullText || a.summary || "").slice(0, 500),
+        source: a.source || "Unknown",
+      })),
+  }));
+
+  return `Respond with JSON matching this schema:
+{
+  "clusters": [
+    {
+      "id": "string (matches input id)",
+      "title": "synthesized event headline",
+      "summary": "2-4 sentence paragraph: what the event is and why it matters"
+    }
+  ]
+}
+
+Clusters to synthesize:
+${JSON.stringify(items, null, 2)}`;
+}
+
+function leadOf(cluster, articlesById) {
+  const ids = cluster.articleIds || [];
+  for (const id of ids) {
+    const a = articlesById.get(id);
+    if (a) return a;
+  }
+  return null;
+}
+
+function clusterFallback(cluster, articlesById) {
+  const lead = leadOf(cluster, articlesById);
+  return {
+    title: cluster.headline || lead?.headline || "",
+    summary: lead?.summary || cluster.summary || "",
+  };
+}
+
+/**
+ * Synthesize a headline + "what & why" summary for each multi-source cluster.
+ * Returns { [clusterId]: { title, summary } } for ONLY the clusters that were
+ * actually synthesized — callers/renderer fall back to the lead article's
+ * headline/summary for anything absent. Deliberately does NOT emit fallback
+ * entries, so a cluster that failed (or was skipped because AI was down) is
+ * retried on the next refresh rather than being marked done. Single-source
+ * clusters are skipped. Never throws — a refresh is never blocked.
+ */
+async function synthesizeClusters(clusters, articlesById, options = {}) {
+  const multi = (clusters || []).filter(
+    (c) => Array.isArray(c.articleIds) && c.articleIds.length > 1,
+  );
+
+  const out = {};
+  if (!multi.length) return out;
+
+  const tuning = resolveTuning(options.tuning);
+  const provider = options.provider || (process.env.OPENAI_API_KEY && "openai") ||
+    (process.env.ANTHROPIC_API_KEY && "anthropic") || null;
+  const apiKey =
+    options.apiKey ||
+    (provider === "openai" ? process.env.OPENAI_API_KEY : undefined) ||
+    (provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : undefined);
+  const useHosted = Boolean(provider && apiKey);
+
+  if (!useHosted) {
+    if (aiAvailable === null) {
+      await checkAiAvailability(tuning.ollamaBaseUrl);
+    }
+    if (!aiAvailable) {
+      console.log("[cluster-synth] AI not available, leaving clusters to lead-article fallback");
+      return out;
+    }
+  }
+
+  const chat = (userContent) => {
+    if (useHosted) {
+      return provider === "anthropic"
+        ? chatAnthropic(CLUSTER_SYNTHESIS_SYSTEM_PROMPT, userContent, apiKey, tuning)
+        : chatOpenAI(
+            [
+              { role: "system", content: CLUSTER_SYNTHESIS_SYSTEM_PROMPT },
+              { role: "user", content: userContent },
+            ],
+            apiKey,
+            tuning,
+          );
+    }
+    return chatOllama(
+      [
+        { role: "system", content: CLUSTER_SYNTHESIS_SYSTEM_PROMPT },
+        { role: "user", content: userContent },
+      ],
+      tuning,
+    );
+  };
+
+  let synthesized = 0;
+  for (let i = 0; i < multi.length; i += tuning.batchSize) {
+    const batch = multi.slice(i, i + tuning.batchSize);
+    try {
+      const parsed = await chat(buildClusterSynthesisPrompt(batch, articlesById));
+      const items = parsed?.clusters ?? [];
+      const byId = new Map();
+      for (const item of items) {
+        if (item && typeof item.id === "string") byId.set(item.id, item);
+      }
+      for (let j = 0; j < batch.length; j++) {
+        const item = byId.get(String(j)) ?? items[j];
+        if (!item || typeof item.title !== "string" || item.title.trim().length < 3) continue;
+        out[batch[j].id] = {
+          title: item.title.trim(),
+          summary:
+            typeof item.summary === "string" && item.summary.trim().length > 20
+              ? item.summary.trim()
+              : clusterFallback(batch[j], articlesById).summary,
+        };
+        synthesized++;
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Unknown";
+      console.warn(`[cluster-synth] Batch ${i}-${i + batch.length} failed: ${msg}`);
+      if (msg.includes("429") || msg.includes("401") || msg.includes("404")) {
+        if (!useHosted) aiAvailable = false;
+        break;
+      }
+    }
+    if (i + tuning.batchSize < multi.length) {
+      await sleep(tuning.pauseBetweenBatchesMs);
+    }
+  }
+
+  console.log(`[cluster-synth] Synthesized ${synthesized}/${multi.length} multi-source clusters`);
+  return out;
 }
 
 /**
@@ -421,8 +604,19 @@ function resetAiStatus() {
   aiAvailable = null;
 }
 
+// Best-effort unload from the refresh pipeline once all AI work (article
+// enrichment with keepModelLoaded + cluster synthesis) is done. Resolves the
+// same tuning (model/base URL) enrichment used. Harmless when hosted/BYOK or
+// when Ollama isn't running — unloadModel swallows its own errors.
+async function unloadAiModel(options = {}) {
+  if (KEEP_MODEL_LOADED) return;
+  await unloadModel(resolveTuning(options.tuning));
+}
+
 module.exports = {
   enrichArticlesWithAI,
+  synthesizeClusters,
+  unloadAiModel,
   checkAiAvailability,
   resetAiStatus,
   unloadModel,

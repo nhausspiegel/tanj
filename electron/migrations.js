@@ -361,6 +361,21 @@ const migrations = [
       }
     },
   },
+  {
+    version: 9,
+    name: "add_cluster_synthesis",
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS cluster_synthesis (
+          cluster_id  TEXT PRIMARY KEY,
+          member_hash TEXT NOT NULL,
+          title       TEXT NOT NULL,
+          summary     TEXT NOT NULL,
+          created_at  TEXT NOT NULL
+        );
+      `);
+    },
+  },
 ];
 
 function ensureSchemaVersionTable(db) {

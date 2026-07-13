@@ -156,25 +156,60 @@ describe("buildTrends", () => {
     expect(peakDayIndex).toBe(biggestEvent.dayIndex);
   });
 
-  it("shows the article quote only when it differs from the summary", () => {
-    const distinct = cluster("LLM", 2, 8, { tldr: "AI summary text.", excerpt: "A different quoted line." });
-    const dup = cluster("Robotics", 2, 8, { tldr: "Same text.", excerpt: "Same text." });
-    const model = buildTrends([], [distinct, dup], NOW);
-    expect(model.events.find((e) => e.domainKey === "LLM")?.excerpt).toBe("A different quoted line.");
-    expect(model.events.find((e) => e.domainKey === "Robotics")?.excerpt).toBeUndefined();
+  it("exposes the event's what/why summary and whether it's AI-synthesized", () => {
+    const ai = cluster("LLM", 2, 8, { tldr: "Synthesized what & why.", tldrIsAi: true });
+    const raw = cluster("Robotics", 2, 8, { tldr: "Lead article blurb.", tldrIsAi: false });
+    const model = buildTrends([], [ai, raw], NOW);
+    expect(model.events.find((e) => e.domainKey === "LLM")?.summary).toBe("Synthesized what & why.");
+    expect(model.events.find((e) => e.domainKey === "LLM")?.summaryIsAi).toBe(true);
+    expect(model.events.find((e) => e.domainKey === "Robotics")?.summaryIsAi).toBe(false);
   });
 
-  it("caps events at EVENTS_PER_DOMAIN even with more candidates", () => {
-    const clusters = [
-      cluster("LLM", 1, 9),
-      cluster("LLM", 2, 8),
-      cluster("LLM", 3, 7),
-      cluster("LLM", 4, 6), // 4th LLM cluster — dropped (cap 3)
-    ];
-    const model = buildTrends([], clusters, NOW);
-    expect(model.events.filter((e) => e.domainKey === "LLM")).toHaveLength(3);
-    // The lowest-scored candidate (baseScore 6) is the one dropped.
-    expect(model.events.some((e) => e.impact === 6)).toBe(false);
+  it("ranks a domain with one huge story above a domain of several mid stories (convex weighting)", () => {
+    // A linear sum-of-impacts would favor Robotics (6+6+6 = 18 > 10); convex
+    // rank weighting favors the domain that had the single biggest story.
+    const model = buildTrends(
+      [],
+      [
+        cluster("LLM", 1, 10),
+        cluster("Robotics", 1, 6),
+        cluster("Robotics", 2, 6),
+        cluster("Robotics", 3, 6),
+      ],
+      NOW,
+    );
+    expect(model.domains[0].key).toBe("LLM");
+  });
+
+  it("picks the same domains/events whether the week scores high or low (invariant to absolute drift)", () => {
+    const high = [cluster("LLM", 1, 9), cluster("Robotics", 2, 6), cluster("Policy", 3, 3)];
+    // Every impact halved — a miscalibrated/quiet week. A fixed threshold
+    // would drop everything; relative selection is unchanged.
+    const low = [cluster("LLM", 1, 4.5), cluster("Robotics", 2, 3), cluster("Policy", 3, 1.5)];
+    const mHigh = buildTrends([], high, NOW);
+    const mLow = buildTrends([], low, NOW);
+    expect(mLow.domains.map((d) => d.key)).toEqual(mHigh.domains.map((d) => d.key));
+    expect(mLow.events.map((e) => e.domainKey).sort()).toEqual(
+      mHigh.events.map((e) => e.domainKey).sort(),
+    );
+  });
+
+  it("shows a variable number of events per domain, at least one for each shown domain", () => {
+    const model = buildTrends(
+      [],
+      [
+        cluster("LLM", 1, 9),
+        cluster("LLM", 2, 8),
+        cluster("LLM", 3, 7), // 3 LLM events (distinct days)
+        cluster("Robotics", 1, 6), // 1 Robotics event
+      ],
+      NOW,
+    );
+    const llmCount = model.events.filter((e) => e.domainKey === "LLM").length;
+    const robCount = model.events.filter((e) => e.domainKey === "Robotics").length;
+    expect(llmCount).toBe(3); // no fixed per-domain cap
+    expect(robCount).toBe(1); // still guaranteed its single best event
+    expect(llmCount).not.toBe(robCount); // variable, not a fixed count
   });
 
   it("charts any domain with in-window cluster impact, independent of article volume", () => {

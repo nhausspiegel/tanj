@@ -21,9 +21,8 @@ export type TrendEvent = {
   domainKey: ArticleDomain;
   dayIndex: number; // 0–6 within the 7-day window
   title: string;
-  blurb: string; // AI summary (the single summary for this event)
-  blurbIsAi: boolean; // false when `blurb` is still just the raw feed blurb, not a real AI summary
-  excerpt?: string; // real article quote, only when distinct from the summary
+  summary: string; // the event's "what & why" text (AI-synthesized cluster summary, else lead's)
+  summaryIsAi: boolean; // false when `summary` is still just the raw feed blurb, not AI-synthesized
   impact: number; // 1–10, one decimal — same scale as story.baseScore/impactScore everywhere else
   articles: number;
   sources: number;
@@ -40,7 +39,10 @@ export type TrendsModel = {
 
 const WINDOW_DAYS = 7;
 const MAX_DOMAINS = 5;
-const EVENTS_PER_DOMAIN = 3;
+// Total event nodes across the whole chart (not per domain) — a readability
+// bound. Distributed by global impact rank, but every shown domain is
+// guaranteed its single best event first. Must be ≥ MAX_DOMAINS.
+const MAX_EVENTS = 12;
 // Peak activity maps to this chart value. The reference design tops out ~78 so
 // the busiest line's peak sits just above the top gridline without clipping
 // (chartXY: y = 296 − value·3.3, so 78 → y≈39, above the y=80 gridline).
@@ -144,61 +146,80 @@ export function buildTrends(
     return impacts.length ? Math.max(...impacts) : 0;
   }
 
-  const rows = [...impactsByDomainDay.entries()].map(([key, grid]) => ({
-    key,
-    row: grid.map(dayImpact),
-  }));
+  // ── Which domains + events to show (relative, rank-based) ────────────
+  // Impact is an LLM-assigned score whose absolute calibration is noisy and
+  // drifts week to week, so selection is *relative*: rank every in-window
+  // cluster globally by impact, then weight by rank with a steep convex
+  // dropoff — peaks dominate, but several strong stories still add up. Both
+  // domain and event selection run off this one internal ranking; the numbers
+  // *displayed* below stay on the fixed absolute scale.
+  const inWindow = clusterStories
+    .map((story) => ({
+      story,
+      dayIndex: dayIndexOf(storyDayStart(story)),
+      impact: story.impactScore ?? story.baseScore,
+    }))
+    .filter((c) => c.dayIndex >= 0)
+    .sort((a, b) => b.impact - a.impact); // global rank = index + 1
 
-  // Most impactful domains this week lead, capped at MAX_DOMAINS — ranked by
-  // total weekly impact, not article volume, so a high-output/low-impact
-  // domain (lots of routine posts, nothing major) doesn't crowd out a
-  // quieter domain that had the week's biggest story.
-  const ranked = rows
-    .map((d) => ({ ...d, total: d.row.reduce((a, b) => a + b, 0) }))
-    .filter((d) => d.total > 0)
-    .sort((a, b) => b.total - a.total)
-    .slice(0, MAX_DOMAINS);
+  // Convex (inverse-square) weight by global rank. rankWeight(1)=1,
+  // (2)=0.25, (3)=0.11… — steep enough that the domain with the week's single
+  // biggest story can't be buried by another domain's volume of smaller ones
+  // (one rank-1 story outweighs any number of rank-4+ ones), while several
+  // strong stories still add up. Rank-based (not impact^k) so it's invariant
+  // to the absolute-score drift noted above.
+  const rankWeight = (rank: number) => 1 / (rank * rank);
 
-  const selectedKeys = new Set(ranked.map((d) => d.key));
+  const domainScore = new Map<ArticleDomain, number>();
+  inWindow.forEach((c, i) => {
+    domainScore.set(c.story.domain, (domainScore.get(c.story.domain) ?? 0) + rankWeight(i + 1));
+  });
 
-  // Scale against the fixed 1–10 impact ceiling (same clamp every impact
-  // score in the app already uses — lib/scoring.ts, lib/pulse.ts), not the
-  // week's own busiest day. A relative per-week max would make a quiet
-  // week's best story (impact 4) fill the chart exactly like a huge news
-  // week's best story (impact 9) — same top-of-chart height either way,
-  // which isn't comparable across domains *or* across weeks. A fixed scale
-  // means "this line reaches 70% up" always means the same impact value.
-  const domains: TrendDomain[] = ranked.map(({ key, row }) => ({
+  // Top MAX_DOMAINS domains by rank-weight — a stable 5 whenever ≥5 domains
+  // have any in-window activity; most impactful first.
+  const ranked = [...domainScore.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, MAX_DOMAINS)
+    .map(([key]) => key);
+  const selectedKeys = new Set(ranked);
+
+  // Line values: each shown domain's daily peak impact, scaled against the
+  // fixed MAX_IMPACT ceiling — absolute, not a per-week rescale, so a quiet
+  // week shows short lines. (Selection above is relative; height here is not.)
+  const rowByDomain = new Map<ArticleDomain, number[]>(
+    [...impactsByDomainDay.entries()].map(([key, grid]) => [key, grid.map(dayImpact)]),
+  );
+  const domains: TrendDomain[] = ranked.map((key) => ({
     key,
     label: domainLabel(key),
     color: `hsl(${domainHue(key)}, 70%, 62%)`,
-    values: row.map((v) => Number(((v / MAX_IMPACT) * NORM_MAX).toFixed(2))),
+    values: (rowByDomain.get(key) ?? new Array(WINDOW_DAYS).fill(0)).map((v) =>
+      Number(((v / MAX_IMPACT) * NORM_MAX).toFixed(2)),
+    ),
   }));
 
-  // Events: top clusters by base score — the week's major stories — restricted
-  // to the shown domains and window, at most EVENTS_PER_DOMAIN each, and at
-  // most one per (domain, day). A line chart only has one point per day, so
-  // if two events shared a day, node placement would either put both at
-  // that day's single line height (misrepresenting whichever one isn't the
-  // day's actual peak) or place each at its own height (leaving one
-  // visibly disconnected from the line, since the line can only be in one
-  // place). Capping to one event per day removes the conflict instead of
-  // trying to reconcile it: the shown event for a day is always exactly
-  // that day's peak, so its node always lands exactly on the line.
-  const candidates = clusterStories
-    .map((story) => ({ story, dayIndex: dayIndexOf(storyDayStart(story)) }))
-    .filter((c) => c.dayIndex >= 0 && selectedKeys.has(c.story.domain))
-    .sort((a, b) => b.story.baseScore - a.story.baseScore);
-
-  const perDomainCount = new Map<ArticleDomain, number>();
+  // Events: within the shown domains, take the highest-impact clusters — but
+  // guarantee each shown domain its single best event first (so no shown line
+  // is clickable-but-empty), then fill the rest by global rank up to
+  // MAX_EVENTS. One event per (domain, day): a line has one point per day, so
+  // a day's node must be that day's peak to sit exactly on the line.
+  const candidates = inWindow.filter((c) => selectedKeys.has(c.story.domain));
   const usedDomainDays = new Set<string>();
+  const domainHasEvent = new Set<ArticleDomain>();
   const selected: typeof candidates = [];
+
+  // Pass 1 — each shown domain's best (highest-impact) event.
   for (const c of candidates) {
-    const seen = perDomainCount.get(c.story.domain) ?? 0;
-    if (seen >= EVENTS_PER_DOMAIN) continue;
+    if (domainHasEvent.has(c.story.domain)) continue;
+    selected.push(c);
+    domainHasEvent.add(c.story.domain);
+    usedDomainDays.add(`${c.story.domain}:${c.dayIndex}`);
+  }
+  // Pass 2 — fill remaining slots by global rank, one per (domain, day).
+  for (const c of candidates) {
+    if (selected.length >= MAX_EVENTS) break;
     const domainDayKey = `${c.story.domain}:${c.dayIndex}`;
     if (usedDomainDays.has(domainDayKey)) continue;
-    perDomainCount.set(c.story.domain, seen + 1);
     usedDomainDays.add(domainDayKey);
     selected.push(c);
   }
@@ -217,11 +238,6 @@ export function buildTrends(
       }));
 
     const uniqueSources = new Set(story.sources.map((s) => s.name)).size;
-    // The real article quote, shown only when it says something the AI summary
-    // doesn't (otherwise the card would repeat the same text twice).
-    const tldr = story.tldr?.trim() ?? "";
-    const quote = story.excerpt?.trim();
-    const excerpt = quote && quote !== tldr ? quote : undefined;
     // "Impact" is the cluster's own impact score (source count + recency +
     // importance + alignment + novelty) when available, else the personalized
     // base score — both clamped 1–10 everywhere else in the app
@@ -234,9 +250,8 @@ export function buildTrends(
       domainKey: story.domain,
       dayIndex,
       title: story.title,
-      blurb: story.tldr,
-      blurbIsAi: story.tldrIsAi,
-      excerpt,
+      summary: story.tldr,
+      summaryIsAi: story.tldrIsAi,
       impact: Number(Math.max(1, Math.min(10, impactRaw)).toFixed(1)),
       articles: story.sources.length,
       sources: Math.max(1, uniqueSources),

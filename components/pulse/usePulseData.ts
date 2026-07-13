@@ -131,12 +131,19 @@ export function usePulseData(): PulseData {
       return;
     }
 
-    const [articlesRes, briefRes, lastRefreshRes, memoryRes] = await Promise.allSettled([
-      desktop.data.getArticles({ limit: 400 }),
-      desktop.data.getBrief(),
-      desktop.jobs.getLastRefresh(),
-      desktop.memory?.getState ? desktop.memory.getState() : Promise.resolve(null),
-    ]);
+    const [articlesRes, briefRes, lastRefreshRes, memoryRes, synthesesRes] =
+      await Promise.allSettled([
+        desktop.data.getArticles({ limit: 400 }),
+        desktop.data.getBrief(),
+        desktop.jobs.getLastRefresh(),
+        desktop.memory?.getState ? desktop.memory.getState() : Promise.resolve(null),
+        desktop.data.getClusterSyntheses
+          ? desktop.data.getClusterSyntheses()
+          : Promise.resolve({}),
+      ]);
+
+    const clusterSyntheses =
+      synthesesRes.status === "fulfilled" && synthesesRes.value ? synthesesRes.value : {};
 
     const previousStories: PulseHistorySnapshot[] =
       memoryRes.status === "fulfilled" && memoryRes.value
@@ -158,7 +165,7 @@ export function usePulseData(): PulseData {
         const clusters = clusterArticles(articles);
         const now = Date.now();
         const rankedMapped = clusters.map((cluster) =>
-          clusterToStory(cluster, articlesById, now, previousStories),
+          clusterToStory(cluster, articlesById, now, previousStories, clusterSyntheses),
         );
         setRankedStories(rankedMapped);
 

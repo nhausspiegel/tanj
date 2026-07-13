@@ -257,6 +257,9 @@ declare global {
         getTopSignals: (filters?: unknown) => Promise<unknown[]>;
         getArticles: (filters?: unknown) => Promise<import("@/lib/types").Article[]>;
         getPatterns: (filters?: unknown) => Promise<import("@/lib/patterns").PatternAnalysis>;
+        getClusterSyntheses: () => Promise<
+          Record<string, { memberHash: string; title: string; summary: string }>
+        >;
         getBrief: (week?: string) => Promise<import("@/lib/brief").WeeklyBrief | null>;
         getInsights: (week?: string) => Promise<import("@/lib/insights").InsightEngineResult>;
         getLongTermTrends: (filters?: { weeks?: number }) => Promise<import("@/lib/db").LongTermTrendAnalysis>;

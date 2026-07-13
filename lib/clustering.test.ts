@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clusterArticles } from "./clustering";
+import { clusterArticles, clusterMemberHash } from "./clustering";
 import { isLikelySameStory, normalizeUrl } from "./dedup";
 import { computeClusterConfidence, computeClusterImpactScore } from "./scoring";
 import { extractEntities } from "./entities";
@@ -115,5 +115,19 @@ describe("story clustering", () => {
 
     expect(normalized).toContain("openai");
     expect(entities.some((entity) => entity.type === "technology")).toBe(true);
+  });
+});
+
+describe("clusterMemberHash", () => {
+  it("is stable regardless of member order", () => {
+    expect(clusterMemberHash({ articleIds: ["a", "b", "c"] })).toBe(
+      clusterMemberHash({ articleIds: ["c", "a", "b"] }),
+    );
+  });
+
+  it("changes when membership changes", () => {
+    const base = clusterMemberHash({ articleIds: ["a", "b"] });
+    expect(clusterMemberHash({ articleIds: ["a", "b", "c"] })).not.toBe(base);
+    expect(clusterMemberHash({ articleIds: ["a"] })).not.toBe(base);
   });
 });

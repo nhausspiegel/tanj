@@ -40,6 +40,7 @@ const {
   setDomainCollapsed,
   snapshotClusters,
 } = require("./repositories/memoryRepo");
+const { getClusterSyntheses } = require("./repositories/clusterSynthesisRepo");
 const { createNotificationService } = require("./services/notificationService");
 const { createRefreshService } = require("./services/refreshService");
 const { createScheduler } = require("./services/scheduler");
@@ -408,6 +409,10 @@ ipcMain.handle("desktop:data:getArticles", (_event, filters = {}) => {
 
 ipcMain.handle("desktop:data:getPatterns", (_event, filters = {}) => {
   return getPatterns(desktopDb, sanitizeArticleFilters(filters));
+});
+
+ipcMain.handle("desktop:data:getClusterSyntheses", () => {
+  return getClusterSyntheses(desktopDb);
 });
 
 ipcMain.handle("desktop:data:getBrief", (_event, week) => {

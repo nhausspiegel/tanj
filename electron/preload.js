@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld("desktop", {
     getTopSignals: (filters) => ipcRenderer.invoke("desktop:data:getTopSignals", filters),
     getArticles: (filters) => ipcRenderer.invoke("desktop:data:getArticles", filters),
     getPatterns: (filters) => ipcRenderer.invoke("desktop:data:getPatterns", filters),
+    getClusterSyntheses: () => ipcRenderer.invoke("desktop:data:getClusterSyntheses"),
     getBrief: (week) => ipcRenderer.invoke("desktop:data:getBrief", week),
     getInsights: (week) => ipcRenderer.invoke("desktop:data:getInsights", week),
     getLongTermTrends: (filters) => ipcRenderer.invoke("desktop:data:getLongTermTrends", filters),

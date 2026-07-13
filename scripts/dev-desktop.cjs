@@ -124,6 +124,8 @@ async function main() {
 
   try {
     await waitForHealth(web);
+    log("electron", "Building shared modules (clustering) for the main process");
+    await runCommand("build:shared", npmCmd, ["run", "build:shared"]);
     log("electron", "Renderer is healthy; rebuilding native Electron modules");
     await runCommand("rebuild", npmCmd, ["run", "rebuild:electron"]);
     log("electron", "Starting Electron");

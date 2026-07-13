@@ -24,10 +24,19 @@ const {
   setLastRefreshError,
   setLastRefreshStats,
 } = require("../repositories/preferencesRepo");
+const {
+  getClusterSyntheses,
+  upsertClusterSynthesis,
+} = require("../repositories/clusterSynthesisRepo");
 const { createResourceMonitor } = require("./resourceMonitor");
 const { sources } = require("./sources");
 const { enrichArticlesWithFullText } = require("./articleExtractor");
-const { enrichArticlesWithAI, resetAiStatus } = require("./aiEnrichment");
+const {
+  enrichArticlesWithAI,
+  synthesizeClusters,
+  unloadAiModel,
+  resetAiStatus,
+} = require("./aiEnrichment");
 
 const parser = new Parser({
   customFields: {
@@ -395,6 +404,8 @@ function createRefreshService({
   fetchAllFeeds: fetchAllFeedsOverride,
   fullTextEnricher = enrichArticlesWithFullText,
   aiEnricher = enrichArticlesWithAI,
+  clusterSynthesizer = synthesizeClusters,
+  modelUnloader = unloadAiModel,
   resetAiAvailability = resetAiStatus,
   maxExtractionArticles: maxExtractionArticlesOverride,
   getPowerState,
@@ -600,6 +611,9 @@ function createRefreshService({
             provider: preferences.aiProvider,
             apiKey: preferences.aiApiKey,
             tuning: preferences.aiTuning,
+            // Keep the model warm — cluster synthesis (below) does more AI work
+            // right after, and unloads once when it's done.
+            keepModelLoaded: true,
             onBatch: (batchArticles) => {
               const batchResult = upsertArticles(db, batchArticles);
               for (const article of batchArticles) upsertedIds.add(article.id);
@@ -635,6 +649,58 @@ function createRefreshService({
         insertedIds: [...batchUpsertResult.insertedIds, ...remainingUpsertResult.insertedIds],
       };
       const latestArticles = getArticles(db, { limit: 500 });
+
+      // Cluster-title synthesis: give multi-source clusters an AI headline +
+      // "why it matters" paragraph, while the model is still warm from
+      // enrichment above. Best-effort — never fails the refresh — and only
+      // (re)synthesizes clusters whose membership changed since last time.
+      try {
+        const { clusterArticles, clusterMemberHash } = require("../generated/clustering.cjs");
+        const clusters = clusterArticles(latestArticles);
+        const existing = getClusterSyntheses(db);
+        const articlesById = new Map(latestArticles.map((article) => [article.id, article]));
+        const toSynthesize = clusters.filter((cluster) => {
+          if (!Array.isArray(cluster.articleIds) || cluster.articleIds.length <= 1) return false;
+          const prev = existing[cluster.id];
+          return !prev || prev.memberHash !== clusterMemberHash(cluster);
+        });
+        if (toSynthesize.length && clusterSynthesizer) {
+          const syntheses = await clusterSynthesizer(toSynthesize, articlesById, {
+            provider: preferences.aiProvider,
+            apiKey: preferences.aiApiKey,
+            tuning: preferences.aiTuning,
+          });
+          let saved = 0;
+          for (const cluster of toSynthesize) {
+            const synthesis = syntheses[cluster.id];
+            if (synthesis && synthesis.title) {
+              upsertClusterSynthesis(db, {
+                clusterId: cluster.id,
+                memberHash: clusterMemberHash(cluster),
+                title: synthesis.title,
+                summary: synthesis.summary,
+              });
+              saved += 1;
+            }
+          }
+          console.log(`[refresh] Cluster synthesis: ${saved}/${toSynthesize.length} clusters`);
+        }
+      } catch (synthError) {
+        console.warn(
+          `[refresh] Cluster synthesis failed: ${synthError instanceof Error ? synthError.message : "Unknown"}`,
+        );
+      } finally {
+        // All AI work (enrichment kept the model loaded, synthesis is done) —
+        // unload once now, best-effort.
+        if (modelUnloader) {
+          try {
+            await modelUnloader({ tuning: preferences.aiTuning });
+          } catch {
+            // ignore
+          }
+        }
+      }
+
       const patterns = getPatterns(db, { limit: 500 });
       const week = formatWeek(new Date());
       savePatternSnapshot(db, patterns, week);

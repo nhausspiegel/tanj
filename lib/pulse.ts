@@ -5,7 +5,7 @@ import {
   type ArticleDomain,
   type StoryCluster,
 } from "@/lib/types";
-import { clusterArticles } from "@/lib/clustering";
+import { clusterArticles, clusterMemberHash } from "@/lib/clustering";
 import { outletTrust, sourceComposite } from "@/lib/outlets";
 import {
   importanceScoreFromValues,
@@ -322,16 +322,31 @@ export function articleToSnapshotCluster(article: Article, baseScore: number): S
   };
 }
 
+// AI-synthesized cluster headline + "why it matters" summary, read back from
+// cluster_synthesis (electron/repositories/clusterSynthesisRepo.js) keyed by
+// cluster id. `memberHash` guards against a stale synthesis whose cluster has
+// since gained/lost members.
+export type PulseClusterSyntheses = Record<
+  string,
+  { memberHash: string; title: string; summary: string }
+>;
+
 export function clusterToStory(
   cluster: StoryCluster,
   articlesById: Map<string, Article>,
   now: number,
   previousStories: PulseHistorySnapshot[] = [],
+  syntheses: PulseClusterSyntheses = {},
 ): PulseStory {
   const members = cluster.articleIds
     .map((id) => articlesById.get(id))
     .filter((article): article is Article => Boolean(article));
   const lead = members[0] ?? null;
+
+  // Use the AI-synthesized headline/summary when one exists for this exact
+  // cluster membership; otherwise fall back to the lead article's own text.
+  const synthesis = syntheses[cluster.id];
+  const synthesisFresh = Boolean(synthesis && synthesis.memberHash === clusterMemberHash(cluster));
 
   const sources: PulseSourceRef[] = members
     .map((article) => {
@@ -366,9 +381,9 @@ export function clusterToStory(
       if (!article.processed_at) return latest;
       return !latest || article.processed_at > latest ? article.processed_at : latest;
     }, undefined),
-    title: cluster.headline,
-    tldr: lead?.summary ?? cluster.summary,
-    tldrIsAi: Boolean(lead?.aiEnriched),
+    title: synthesisFresh ? synthesis!.title : cluster.headline,
+    tldr: synthesisFresh ? synthesis!.summary : (lead?.summary ?? cluster.summary),
+    tldrIsAi: synthesisFresh || Boolean(lead?.aiEnriched),
     excerpt: lead?.excerpt ?? members.find((article) => article.excerpt)?.excerpt,
     url: mostRecent?.url,
     imageUrl: members.find((article) => article.imageUrl)?.imageUrl,
@@ -446,10 +461,13 @@ export function clusterArticlesToStories(
   articles: Article[],
   now: number = Date.now(),
   previousStories: PulseHistorySnapshot[] = [],
+  syntheses: PulseClusterSyntheses = {},
 ): PulseStory[] {
   const clusters = clusterArticles(articles);
   const articlesById = new Map(articles.map((article) => [article.id, article]));
-  return clusters.map((cluster) => clusterToStory(cluster, articlesById, now, previousStories));
+  return clusters.map((cluster) =>
+    clusterToStory(cluster, articlesById, now, previousStories, syntheses),
+  );
 }
 
 export type PulseVoteMap = Record<string, 1 | -1 | 0>;
