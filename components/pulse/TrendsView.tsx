@@ -15,13 +15,68 @@ function chartXY(day: number, value: number) {
   return { x: CHART_LEFT + day * CHART_STEP, y: 296 - value * 3.3 };
 }
 
-function pathFor(values: number[], d0: number, d1: number): string {
-  let d = "";
-  for (let i = d0; i <= d1; i++) {
-    const p = chartXY(i, values[i] ?? 0);
-    d += (i === d0 ? "M" : " L") + p.x.toFixed(1) + " " + p.y.toFixed(1);
+type Pt = { x: number; y: number };
+
+// Monotone cubic (Fritsch-Carlson) interpolation: smooths the raw
+// day-to-day count line into a curve that still passes exactly through
+// every data point but never overshoots past a neighbor's value — unlike
+// Catmull-Rom, which can dip below a flat run right before a rise (a fake
+// "kink" with no data behind it). Returns per-segment cubic-bezier commands,
+// segments[i] connecting points[i] -> points[i+1].
+function curveSegments(values: number[]): { points: Pt[]; segments: string[] } {
+  const points: Pt[] = values.map((v, i) => chartXY(i, v ?? 0));
+  const n = points.length;
+  if (n < 2) return { points, segments: [] };
+
+  const dx: number[] = [];
+  const slope: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    dx.push(points[i + 1].x - points[i].x);
+    slope.push((points[i + 1].y - points[i].y) / dx[i]);
   }
-  return d;
+
+  const m: number[] = new Array(n);
+  m[0] = slope[0];
+  m[n - 1] = slope[n - 2];
+  for (let i = 1; i < n - 1; i++) {
+    m[i] = slope[i - 1] === 0 || slope[i] === 0 || slope[i - 1] > 0 !== slope[i] > 0
+      ? 0
+      : (slope[i - 1] + slope[i]) / 2;
+  }
+  for (let i = 0; i < n - 1; i++) {
+    if (slope[i] === 0) {
+      m[i] = 0;
+      m[i + 1] = 0;
+      continue;
+    }
+    const a = m[i] / slope[i];
+    const b = m[i + 1] / slope[i];
+    const s = a * a + b * b;
+    if (s > 9) {
+      const t = 3 / Math.sqrt(s);
+      m[i] = t * a * slope[i];
+      m[i + 1] = t * b * slope[i];
+    }
+  }
+
+  const segments: string[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = points[i];
+    const p1 = points[i + 1];
+    const c1x = p0.x + dx[i] / 3;
+    const c1y = p0.y + (m[i] * dx[i]) / 3;
+    const c2x = p1.x - dx[i] / 3;
+    const c2y = p1.y - (m[i + 1] * dx[i]) / 3;
+    segments.push(`C${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p1.x.toFixed(1)} ${p1.y.toFixed(1)}`);
+  }
+  return { points, segments };
+}
+
+function fullPath(values: number[]): string {
+  const { points, segments } = curveSegments(values);
+  if (points.length === 0) return "";
+  if (points.length === 1) return `M${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+  return `M${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)} ` + segments.join(" ");
 }
 
 // "hsl(262, 70%, 62%)" → "hsla(262, 70%, 62%, <alpha>)"
@@ -191,11 +246,6 @@ export function TrendsView({ model }: { model: TrendsModel }) {
 
               <g className="trends-reveal">
                 {domains.map((d, di) => {
-                  const evDays = events.filter((e) => e.domainKey === d.key).map((e) => e.dayIndex);
-                  const hotD = evDays
-                    .map((day) => pathFor(d.values, Math.max(0, day - 1), Math.min(6, day + 1)))
-                    .join(" ")
-                    .trim();
                   const active = d.key === selKey;
                   return (
                     <g
@@ -215,7 +265,7 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                     >
                       {/* Wide invisible hit target so the thin dashed line is easy to click. */}
                       <path
-                        d={pathFor(d.values, 0, 6)}
+                        d={fullPath(d.values)}
                         fill="none"
                         stroke="transparent"
                         strokeWidth="16"
@@ -223,7 +273,7 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                       />
                       <path
                         className="trends-line"
-                        d={pathFor(d.values, 0, 6)}
+                        d={fullPath(d.values)}
                         fill="none"
                         stroke={d.color}
                         strokeWidth="2"
@@ -231,17 +281,6 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                         strokeLinecap="round"
                         style={{ animationDelay: `${di * 0.7}s` }}
                       />
-                      {hotD ? (
-                        <path
-                          d={hotD}
-                          fill="none"
-                          stroke={d.color}
-                          strokeWidth="3.4"
-                          strokeDasharray="5 6"
-                          strokeLinecap="round"
-                          style={{ filter: `drop-shadow(0 0 6px ${d.color})` }}
-                        />
-                      ) : null}
                     </g>
                   );
                 })}
@@ -252,6 +291,7 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                 if (!d) return null;
                 const p = chartXY(e.dayIndex, d.values[e.dayIndex] ?? 0);
                 const r = hoverEvent === e.id ? 8 : 6;
+                const active = d.key === selKey;
                 return (
                   <g
                     key={e.id}
@@ -270,7 +310,13 @@ export function TrendsView({ model }: { model: TrendsModel }) {
                     onMouseLeave={() => setHoverEvent((h) => (h === e.id ? null : h))}
                     onFocus={() => setHoverEvent(e.id)}
                     onBlur={() => setHoverEvent((h) => (h === e.id ? null : h))}
-                    style={{ cursor: "pointer", animationDelay: `${1.2 + i * 0.12}s`, outline: "none" }}
+                    style={{
+                      cursor: "pointer",
+                      animationDelay: `${1.2 + i * 0.12}s`,
+                      outline: "none",
+                      opacity: active || hoverEvent === e.id ? 1 : 0.28,
+                      transition: "opacity 0.45s ease",
+                    }}
                   >
                     <circle className="trends-node-glow" cx={p.x} cy={p.y} r="16" fill={withAlpha(d.color, 0.16)} />
                     <circle

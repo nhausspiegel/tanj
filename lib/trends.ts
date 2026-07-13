@@ -151,11 +151,32 @@ export function buildTrends(
 
   // Events: top clusters by base score — the week's major stories — restricted
   // to the shown domains and window, at most EVENTS_PER_DOMAIN each.
+  //
+  // The line's shape (daily article count) and event selection (cluster base
+  // score) are independent signals, so a domain's busiest day often has no
+  // event candidate at all — the line visibly peaks with nothing marking it.
+  // When a real cluster story exists on that peak day, prioritize it over a
+  // lower-volume day so the chart's most visually prominent point usually
+  // has a node explaining it (never fabricated — only when real data backs it).
+  const peakDayByDomain = new Map<ArticleDomain, number>();
+  for (const d of domains) {
+    let peakIdx = 0;
+    for (let i = 1; i < d.values.length; i++) {
+      if (d.values[i] > d.values[peakIdx]) peakIdx = i;
+    }
+    peakDayByDomain.set(d.key, peakIdx);
+  }
+
   const perDomainCount = new Map<ArticleDomain, number>();
   const candidates = clusterStories
     .map((story) => ({ story, dayIndex: dayIndexOf(storyDayStart(story)) }))
     .filter((c) => c.dayIndex >= 0 && selectedKeys.has(c.story.domain))
-    .sort((a, b) => b.story.baseScore - a.story.baseScore);
+    .sort((a, b) => {
+      const aOnPeak = a.dayIndex === peakDayByDomain.get(a.story.domain);
+      const bOnPeak = b.dayIndex === peakDayByDomain.get(b.story.domain);
+      if (aOnPeak !== bOnPeak) return aOnPeak ? -1 : 1;
+      return b.story.baseScore - a.story.baseScore;
+    });
 
   const events: TrendEvent[] = [];
   for (const { story, dayIndex } of candidates) {
