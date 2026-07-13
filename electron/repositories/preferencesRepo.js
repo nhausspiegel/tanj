@@ -3,6 +3,7 @@ const defaultPreferences = {
   notificationsEnabled: true,
   notificationImportanceThreshold: 5,
   personalizedDefault: false,
+  coloredScoreBadges: false,
   // BYOK: an API key the user pastes in Settings, for the provider chosen
   // below. Used by AI enrichment instead of local Ollama when present.
   // Never sent anywhere except directly to that provider's API, from the
@@ -142,6 +143,10 @@ function savePreferences(db, next) {
 
   if (typeof next.personalizedDefault === "boolean") {
     sanitized.personalizedDefault = next.personalizedDefault;
+  }
+
+  if (typeof next.coloredScoreBadges === "boolean") {
+    sanitized.coloredScoreBadges = next.coloredScoreBadges;
   }
 
   // "" is a valid value (explicit clear); only skip when the field wasn't

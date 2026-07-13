@@ -3,7 +3,15 @@ import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
-const { clampStringArray, sanitizeScanStatePayload } = require("./ipcValidate");
+const { clampStringArray, sanitizePreferences, sanitizeScanStatePayload } = require("./ipcValidate");
+
+describe("sanitizePreferences", () => {
+  it("preserves the colored-score-badges toggle", () => {
+    expect(sanitizePreferences({ coloredScoreBadges: true }).coloredScoreBadges).toBe(true);
+    expect(sanitizePreferences({ coloredScoreBadges: false }).coloredScoreBadges).toBe(false);
+    expect(sanitizePreferences({ coloredScoreBadges: "true" }).coloredScoreBadges).toBeUndefined();
+  });
+});
 
 const wellFormedTeachingItem = {
   id: "article-1",

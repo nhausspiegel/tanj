@@ -265,6 +265,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(true);
 
   const [devMode, setDevMode] = useState(false);
+  const [coloredScoreBadges, setColoredScoreBadges] = useState(false);
   const [refreshTuning, setRefreshTuning] = useState<DesktopRefreshTuning>(DEFAULT_REFRESH_TUNING);
   const [aiTuning, setAiTuning] = useState<DesktopAiTuning>(DEFAULT_AI_TUNING);
   const [resourceTuning, setResourceTuning] = useState<DesktopResourceTuning>(DEFAULT_RESOURCE_TUNING);
@@ -285,6 +286,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         setProvider((prefs.aiProvider as Provider) ?? "openai");
         setSavedKeyPresent(Boolean(prefs.aiApiKey));
         setDevMode(Boolean(prefs.devMode));
+        setColoredScoreBadges(Boolean(prefs.coloredScoreBadges));
         if (prefs.refreshTuning) setRefreshTuning(prefs.refreshTuning);
         if (prefs.aiTuning) setAiTuning(prefs.aiTuning);
         if (prefs.resourceTuning) setResourceTuning(prefs.resourceTuning);
@@ -338,6 +340,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     setDevStatus(null);
     const result = await window.desktop?.data.savePreferences({
       devMode,
+      coloredScoreBadges,
       refreshTuning,
       aiTuning,
       resourceTuning,
@@ -353,6 +356,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   }
 
   async function resetDevSettings() {
+    setColoredScoreBadges(false);
     setRefreshTuning(DEFAULT_REFRESH_TUNING);
     setAiTuning(DEFAULT_AI_TUNING);
     setResourceTuning(DEFAULT_RESOURCE_TUNING);
@@ -361,6 +365,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     setDisabledSources([]);
     setDevStatus(null);
     const result = await window.desktop?.data.savePreferences({
+      coloredScoreBadges: false,
       refreshTuning: DEFAULT_REFRESH_TUNING,
       aiTuning: DEFAULT_AI_TUNING,
       resourceTuning: DEFAULT_RESOURCE_TUNING,
@@ -573,6 +578,16 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
           {devMode ? (
             <>
+              <div style={sectionLabel}>Dashboard</div>
+              <Toggle
+                label="Colored score badges"
+                checked={coloredScoreBadges}
+                onChange={setColoredScoreBadges}
+              />
+              <p style={{ margin: "8px 0 0", fontSize: 11.5, lineHeight: 1.5, color: "#66646f" }}>
+                Colors badges from red at 1 to green at 10, matching the score breakdown bars.
+              </p>
+
               <div style={sectionLabel}>Refresh &amp; fetch</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <NumberField

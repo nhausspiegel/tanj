@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   PULSE_ACCENT_DEFAULT_HEX,
   PULSE_ACCENT_HIGHLIGHT_DEFAULT_HEX,
@@ -19,10 +19,14 @@ function applyTheme(theme: DesktopThemeOverrides | undefined) {
 /**
  * Applies dev-mode theme/domain-hue overrides from preferences at runtime —
  * CSS custom properties for accent colors (lib/pulse.ts's PULSE_ACCENT*
- * constants reference them) and a module-level map for domainHue(). Loads
- * once on mount and re-applies whenever Settings saves a change.
+ * constants reference them) and a module-level map for domainHue(). Also
+ * returns other render-affecting preferences (coloredScoreBadges) as React
+ * state, since those need an actual re-render rather than a CSS-var/module
+ * side effect. Loads once on mount and re-applies whenever Settings saves.
  */
-export function useThemeOverrides(): void {
+export function useThemeOverrides(): { coloredScoreBadges: boolean } {
+  const [coloredScoreBadges, setColoredScoreBadges] = useState(false);
+
   useEffect(() => {
     const desktop = typeof window !== "undefined" ? window.desktop : undefined;
     if (!desktop?.data?.getPreferences) return;
@@ -34,12 +38,14 @@ export function useThemeOverrides(): void {
         if (cancelled) return;
         applyTheme(preferences.themeOverrides);
         setDomainHueOverrides(preferences.domainHueOverrides);
+        setColoredScoreBadges(!!preferences.coloredScoreBadges);
       })
       .catch(() => {});
 
     const unsubscribe = desktop.preferences?.onChanged?.((preferences) => {
       applyTheme(preferences?.themeOverrides);
       setDomainHueOverrides(preferences?.domainHueOverrides);
+      setColoredScoreBadges(!!preferences?.coloredScoreBadges);
     });
 
     return () => {
@@ -47,4 +53,6 @@ export function useThemeOverrides(): void {
       if (typeof unsubscribe === "function") unsubscribe();
     };
   }, []);
+
+  return { coloredScoreBadges };
 }

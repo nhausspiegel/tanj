@@ -21,10 +21,17 @@ const SCORE_TERMS: Array<{ key: keyof ArticleScoreBreakdown; label: string }> = 
 
 // Red (low fill) -> green (high fill), smooth continuum via HSL hue
 // (0deg = red, 120deg = green), not a hard threshold swap between colors.
-function fillColor(pct: number): string {
-  const hue = (Math.max(0, Math.min(100, pct)) / 100) * 120;
-  return `hsl(${hue}, 72%, 50%)`;
+function scoreHue(pct: number): number {
+  return (Math.max(0, Math.min(100, pct)) / 100) * 120;
 }
+
+function fillColor(pct: number): string {
+  return `hsl(${scoreHue(pct)}, 72%, 50%)`;
+}
+
+// Same clamp range computeArticleRelevanceScore uses (lib/pulse.ts).
+const SCORE_MIN = 1;
+const SCORE_MAX = 10;
 
 function scoreBar(label: string, value: number, max: number) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
@@ -74,8 +81,18 @@ function scoreBar(label: string, value: number, max: number) {
 // thumbnail's own overflow:hidden; the badge's own z-index keeps it above
 // the AI TL;DR hover overlay, which is padded to clear the badge's footprint
 // so the two never visually overlap.
-function ScoreBadge({ scoreValue, breakdown }: { scoreValue: number; breakdown?: ArticleScoreBreakdown }) {
+function ScoreBadge({
+  scoreValue,
+  breakdown,
+  colored,
+}: {
+  scoreValue: number;
+  breakdown?: ArticleScoreBreakdown;
+  colored?: boolean;
+}) {
   const [hovered, setHovered] = useState(false);
+  const pct = ((scoreValue - SCORE_MIN) / (SCORE_MAX - SCORE_MIN)) * 100;
+  const hue = scoreHue(pct);
   return (
     <div
       onMouseEnter={() => setHovered(true)}
@@ -89,15 +106,22 @@ function ScoreBadge({ scoreValue, breakdown }: { scoreValue: number; breakdown?:
         flexDirection: "column",
         alignItems: "center",
         lineHeight: 1,
-        background: "rgba(19,26,37,0.65)",
-        border: "1px solid rgba(255,255,255,0.18)",
+        background: colored ? `hsla(${hue}, 65%, 12%, 0.88)` : "rgba(19,26,37,0.65)",
+        border: colored ? `1px solid hsl(${hue}, 72%, 55%)` : "1px solid rgba(255,255,255,0.18)",
         backdropFilter: "blur(6px)",
         borderRadius: 8,
         padding: "5px 9px",
         cursor: "default",
       }}
     >
-      <span style={{ fontSize: 16, fontWeight: 900, color: "#F7F3E6", letterSpacing: "-0.02em" }}>
+      <span
+        style={{
+          fontSize: 16,
+          fontWeight: 900,
+          color: colored ? `hsl(${hue}, 72%, 55%)` : "#F7F3E6",
+          letterSpacing: "-0.02em",
+        }}
+      >
         {scoreValue.toFixed(1)}
       </span>
       {hovered && breakdown ? (
@@ -147,6 +171,7 @@ export type StoryCardProps = {
   vote: 1 | -1 | 0;
   hovered: boolean;
   isNew: boolean;
+  coloredScoreBadge?: boolean;
   onOpen: () => void;
   onEnter: () => void;
   onLeave: () => void;
@@ -169,6 +194,7 @@ export function StoryCard({
   vote,
   hovered,
   isNew,
+  coloredScoreBadge,
   onOpen,
   onEnter,
   onLeave,
@@ -320,7 +346,7 @@ export function StoryCard({
           </p>
         </div>
       </div>
-      <ScoreBadge scoreValue={scoreValue} breakdown={story.scoreBreakdown} />
+      <ScoreBadge scoreValue={scoreValue} breakdown={story.scoreBreakdown} colored={coloredScoreBadge} />
 
       <div style={{ padding: "14px 14px 15px", display: "flex", flexDirection: "column", gap: 8 }}>
         <h3

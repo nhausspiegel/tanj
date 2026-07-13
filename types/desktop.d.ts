@@ -103,6 +103,7 @@ declare global {
     notificationsEnabled: boolean;
     notificationImportanceThreshold: number;
     personalizedDefault: boolean;
+    coloredScoreBadges: boolean;
     aiApiKey?: string;
     aiProvider?: "openai" | "anthropic";
     appDataPath?: string;

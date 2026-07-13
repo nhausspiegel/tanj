@@ -262,6 +262,8 @@ function sanitizePreferences(input) {
     notificationImportanceThreshold: clampNumber(src.notificationImportanceThreshold, { min: 1, max: 5 }),
     personalizedDefault:
       typeof src.personalizedDefault === "boolean" ? src.personalizedDefault : undefined,
+    coloredScoreBadges:
+      typeof src.coloredScoreBadges === "boolean" ? src.coloredScoreBadges : undefined,
     sources: clampStringArray(src.sources, 500),
     aiApiKey: sanitizeApiKey(src.aiApiKey),
     aiProvider: sanitizeAiProvider(src.aiProvider),

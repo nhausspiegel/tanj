@@ -47,7 +47,7 @@ function openExternal(url?: string) {
 }
 
 export function PulseClient() {
-  useThemeOverrides();
+  const { coloredScoreBadges } = useThemeOverrides();
   const {
     stories,
     rankedStories,
@@ -178,6 +178,7 @@ export function PulseClient() {
         isNew: Boolean(
           story.processedAt && newSinceRefreshAt && story.processedAt > newSinceRefreshAt,
         ),
+        coloredScoreBadge: coloredScoreBadges,
         onOpen: () => setSelected(story.id),
         onEnter: () => setHovered(story.id),
         onLeave: () => setHovered((h) => (h === story.id ? null : h)),
@@ -190,7 +191,7 @@ export function PulseClient() {
           setVote(story.id, -1);
         },
       })),
-    [score, saved, votes, hovered, setVote, toggleSaved, newSinceRefreshAt],
+    [score, saved, votes, hovered, setVote, toggleSaved, newSinceRefreshAt, coloredScoreBadges],
   );
 
   const rows: RowViewModel[] = useMemo(() => {
