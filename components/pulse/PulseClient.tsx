@@ -206,15 +206,16 @@ export function PulseClient() {
         list: storiesFor(d),
       }));
     } else if (page === "foryou") {
-      defs = domainsWithStories
-        .filter((d) => followed[d])
-        .map((d) => ({ key: d, label: domainLabel(d), list: storiesFor(d) }));
+      const followedDomains = domainsWithStories.filter((d) => followed[d]);
+      defs = followedDomains.map((d) => ({ key: d, label: domainLabel(d), list: storiesFor(d) }));
 
-      // Suggested picks lead the feed. Liked stories live on their own
-      // My Likes page now, not buried in a dashboard row.
-      const unfollowed = domainsWithStories.filter((d) => !followed[d]);
-      if (unfollowed.length) {
-        const pool = sortedByScore(stories.filter((s) => unfollowed.includes(s.domain))).slice(0, 8);
+      // Suggested = top stories across everything you follow, ranked by
+      // score — a cross-domain highlight reel of your own picks, not a
+      // preview of domains you haven't added (that's what All Domains is
+      // for). Overlapping with the per-domain rows below is expected, same
+      // as a Netflix "Top Picks" row duplicating genre rows.
+      if (followedDomains.length) {
+        const pool = sortedByScore(stories.filter((s) => followedDomains.includes(s.domain))).slice(0, 8);
         if (pool.length) defs.unshift({ key: "suggested", label: "Suggested for You", list: pool });
       }
     }
