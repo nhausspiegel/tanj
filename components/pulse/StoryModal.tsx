@@ -405,7 +405,17 @@ export function StoryModal({
             >
               AI TL;DR
             </div>
-            <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "#d6d4dd" }}>{story.tldr}</p>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 14.5,
+                lineHeight: 1.6,
+                color: story.tldrIsAi ? "#d6d4dd" : "#8a8894",
+                fontStyle: story.tldrIsAi ? "normal" : "italic",
+              }}
+            >
+              {story.tldrIsAi ? story.tldr : "Summary not yet generated for this article."}
+            </p>
           </div>
           {story.excerpt ? (
             <div style={{ marginBottom: 22 }}>

@@ -308,14 +308,15 @@ export function StoryCard({
               margin: 0,
               fontSize: 12,
               lineHeight: 1.5,
-              color: "#d6d4dd",
+              color: story.tldrIsAi ? "#d6d4dd" : "#8a8894",
+              fontStyle: story.tldrIsAi ? "normal" : "italic",
               display: "-webkit-box",
               WebkitLineClamp: 3,
               WebkitBoxOrient: "vertical",
               overflow: "hidden",
             }}
           >
-            {story.tldr}
+            {story.tldrIsAi ? story.tldr : "Summary not yet generated for this article."}
           </p>
         </div>
       </div>

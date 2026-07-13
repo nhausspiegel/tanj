@@ -123,6 +123,7 @@ function normalizeArticle(article) {
       typeof article.excerpt === "string" && article.excerpt.trim()
         ? article.excerpt.trim()
         : null,
+    ai_enriched: article.aiEnriched ? 1 : 0,
     importance: isImportance(article.importance) ? Number(article.importance) : 3,
     personalized_score:
       Number.isFinite(Number(article.personalized_score))
@@ -176,6 +177,7 @@ function articleFromRow(row, tags) {
     url: row.url ?? undefined,
     imageUrl: row.image_url ?? undefined,
     excerpt: row.excerpt ?? undefined,
+    aiEnriched: Boolean(row.ai_enriched),
     tags,
     importance: isImportance(row.effective_importance)
       ? Number(row.effective_importance)
@@ -229,9 +231,9 @@ function upsertArticle(db, input) {
   db.prepare(`
     INSERT INTO articles (
       id, headline, summary, domain, domain_secondary_json, source, url, image_url, excerpt,
-      importance, personalized_score, published_at, processed_at, raw_payload
+      ai_enriched, importance, personalized_score, published_at, processed_at, raw_payload
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       headline = excluded.headline,
       summary = excluded.summary,
@@ -241,6 +243,9 @@ function upsertArticle(db, input) {
       url = COALESCE(excluded.url, articles.url),
       image_url = COALESCE(excluded.image_url, articles.image_url),
       excerpt = COALESCE(excluded.excerpt, articles.excerpt),
+      -- Never downgrade: once an article has a real AI summary, a later
+      -- upsert that didn't re-run AI enrichment shouldn't erase that fact.
+      ai_enriched = max(articles.ai_enriched, excluded.ai_enriched),
       importance = excluded.importance,
       personalized_score = excluded.personalized_score,
       published_at = excluded.published_at,
@@ -256,6 +261,7 @@ function upsertArticle(db, input) {
     article.url,
     article.image_url,
     article.excerpt,
+    article.ai_enriched,
     article.importance,
     article.personalized_score,
     article.published_at,

@@ -349,6 +349,18 @@ const migrations = [
       }
     },
   },
+  {
+    version: 8,
+    name: "add_article_ai_enriched",
+    up(db) {
+      const columns = db.prepare("PRAGMA table_info(articles)").all();
+      const hasAiEnriched = columns.some((column) => column.name === "ai_enriched");
+
+      if (!hasAiEnriched) {
+        db.exec(`ALTER TABLE articles ADD COLUMN ai_enriched INTEGER NOT NULL DEFAULT 0;`);
+      }
+    },
+  },
 ];
 
 function ensureSchemaVersionTable(db) {

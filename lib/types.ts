@@ -88,6 +88,7 @@ export type Article = {
   url?: string;
   imageUrl?: string;
   excerpt?: string;
+  aiEnriched?: boolean; // true once `summary` is a real AI TL;DR, not just the raw feed blurb
   tags: string[];
   importance: 1 | 2 | 3 | 4 | 5;
   originalImportance?: 1 | 2 | 3 | 4 | 5;

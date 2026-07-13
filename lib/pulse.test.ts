@@ -25,6 +25,7 @@ function story(overrides: Partial<PulseStory> = {}): PulseStory {
     timeAgo: "1d ago",
     title: "Title",
     tldr: "Summary",
+    tldrIsAi: true,
     importance: 3,
     tags: [],
     baseScore: 5,

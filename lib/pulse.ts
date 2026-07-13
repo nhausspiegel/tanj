@@ -60,6 +60,7 @@ export type PulseStory = {
   processedAt?: string; // when this story was ingested locally — drives the "new" badge
   title: string;
   tldr: string;
+  tldrIsAi: boolean; // false when `tldr` is still just the raw feed blurb, not a real AI summary
   excerpt?: string; // real quoted text from the article, distinct from the AI TL;DR
   url?: string; // lead source's article url
   imageUrl?: string; // real thumbnail scraped from the source feed, if any
@@ -365,6 +366,7 @@ export function clusterToStory(
     }, undefined),
     title: cluster.headline,
     tldr: lead?.summary ?? cluster.summary,
+    tldrIsAi: Boolean(lead?.aiEnriched),
     excerpt: lead?.excerpt ?? members.find((article) => article.excerpt)?.excerpt,
     url: mostRecent?.url,
     imageUrl: members.find((article) => article.imageUrl)?.imageUrl,
@@ -410,6 +412,7 @@ export function articlesToStories(
       processedAt: article.processed_at || undefined,
       title: article.headline,
       tldr: article.summary,
+      tldrIsAi: Boolean(article.aiEnriched),
       excerpt: article.excerpt,
       url: article.url,
       imageUrl: article.imageUrl,
@@ -542,6 +545,7 @@ export const SEED_STORIES: PulseStory[] = SEED_INPUT.map((s) => {
   return {
     ...s,
     publishedAt,
+    tldrIsAi: true,
     importance: 3 + (h % 3),
     tags: [],
     baseScore: clamp(4 + (h % 40) / 10, 1, 10),
