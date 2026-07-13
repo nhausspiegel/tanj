@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
-import { PULSE_ACCENT } from "@/lib/pulse";
+import { PULSE_ACCENT, PULSE_ACCENT_HIGHLIGHT } from "@/lib/pulse";
 import type { PulseRefreshProgress } from "@/components/pulse/usePulseData";
 
 export type NavItemVM = {
@@ -121,7 +121,7 @@ export function PulseSidebar({
               justifyContent: "center",
               gap: 8,
               width: "100%",
-              background: refreshing ? "transparent" : PULSE_ACCENT,
+              background: refreshing ? "transparent" : PULSE_ACCENT_HIGHLIGHT,
               border: refreshing ? "1px solid rgba(255,255,255,0.14)" : "none",
               color: refreshing ? "#a5a3ae" : "#131A25",
               fontFamily: "inherit",

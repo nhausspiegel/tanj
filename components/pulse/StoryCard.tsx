@@ -90,14 +90,14 @@ function ScoreBadge({ scoreValue, breakdown }: { scoreValue: number; breakdown?:
         alignItems: "center",
         lineHeight: 1,
         background: "rgba(19,26,37,0.65)",
-        border: "1px solid rgba(222,244,120,0.35)",
+        border: "1px solid rgba(255,255,255,0.18)",
         backdropFilter: "blur(6px)",
         borderRadius: 8,
         padding: "5px 9px",
         cursor: "default",
       }}
     >
-      <span style={{ fontSize: 16, fontWeight: 900, color: PULSE_ACCENT_HIGHLIGHT, letterSpacing: "-0.02em" }}>
+      <span style={{ fontSize: 16, fontWeight: 900, color: "#F7F3E6", letterSpacing: "-0.02em" }}>
         {scoreValue.toFixed(1)}
       </span>
       {hovered && breakdown ? (
@@ -183,7 +183,7 @@ export function StoryCard({
     height: 26,
     borderRadius: "50%",
     border: `1px solid ${saved ? PULSE_ACCENT : "rgba(255,255,255,0.14)"}`,
-    background: saved ? PULSE_ACCENT : "transparent",
+    background: saved ? PULSE_ACCENT_HIGHLIGHT : "transparent",
     color: saved ? "#131A25" : "#8a8894",
     cursor: "pointer",
     display: "flex",

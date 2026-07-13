@@ -34,7 +34,7 @@ export const PULSE_ACCENT_HIGHLIGHT = "var(--pulse-accent-highlight)";
 
 // Default hex values backing the CSS custom properties above — used to
 // seed :root in globals.css and as the reset target for theme overrides.
-export const PULSE_ACCENT_DEFAULT_HEX = "#788CE3";
+export const PULSE_ACCENT_DEFAULT_HEX = "#DEF478";
 export const PULSE_ACCENT_SECONDARY_DEFAULT_HEX = "#83CDFF";
 export const PULSE_ACCENT_HIGHLIGHT_DEFAULT_HEX = "#DEF478";
 

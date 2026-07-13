@@ -445,7 +445,7 @@ export function PulseClient() {
                         cursor: "pointer",
                       }}
                     >
-                      + Add domains in All Domains
+                      + Add domains
                     </button>
                   </div>
                 ) : null}

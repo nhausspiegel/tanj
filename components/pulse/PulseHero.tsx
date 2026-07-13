@@ -1,6 +1,6 @@
 "use client";
 
-import { PULSE_ACCENT, domainHue, domainLabel, type PulseStory } from "@/lib/pulse";
+import { PULSE_ACCENT, PULSE_ACCENT_HIGHLIGHT, domainHue, domainLabel, type PulseStory } from "@/lib/pulse";
 import { HeartIcon } from "@/components/pulse/icons";
 
 const HERO_HUE = 194; // Electric theme hero tint
@@ -68,8 +68,9 @@ export function PulseHero({
               fontWeight: 800,
               letterSpacing: "0.14em",
               textTransform: "uppercase",
-              color: "#131A25",
-              background: PULSE_ACCENT,
+              color: `hsl(${domainHue(hero.domain)}, 80%, 78%)`,
+              background: `hsla(${domainHue(hero.domain)}, 55%, 48%, 0.2)`,
+              border: `1px solid hsla(${domainHue(hero.domain)}, 60%, 55%, 0.35)`,
               padding: "5px 10px",
               borderRadius: 4,
             }}
@@ -118,7 +119,7 @@ export function PulseHero({
             className="pulse-accent-btn"
             onClick={onOpen}
             style={{
-              background: PULSE_ACCENT,
+              background: PULSE_ACCENT_HIGHLIGHT,
               color: "#131A25",
               border: "none",
               fontFamily: "inherit",
@@ -143,7 +144,7 @@ export function PulseHero({
               justifyContent: "center",
               width: 44,
               height: 44,
-              background: saved ? PULSE_ACCENT : "rgba(255,255,255,0.09)",
+              background: saved ? PULSE_ACCENT_HIGHLIGHT : "rgba(255,255,255,0.09)",
               color: saved ? "#131A25" : "#F7F3E6",
               border: `1px solid ${saved ? PULSE_ACCENT : "rgba(255,255,255,0.18)"}`,
               borderRadius: 6,

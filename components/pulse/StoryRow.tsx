@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, type CSSProperties } from "react";
-import { PULSE_ACCENT } from "@/lib/pulse";
+import { PULSE_ACCENT_HIGHLIGHT } from "@/lib/pulse";
 import { StoryCard, type StoryCardProps } from "@/components/pulse/StoryCard";
 
 export type RowItem = StoryCardProps & { key: string };
@@ -112,7 +112,7 @@ export function StoryRow({
                 height: 30,
                 borderRadius: 15,
                 border: "none",
-                background: PULSE_ACCENT,
+                background: PULSE_ACCENT_HIGHLIGHT,
                 color: "#131A25",
                 cursor: "pointer",
                 fontSize: 11,
@@ -125,22 +125,25 @@ export function StoryRow({
             </button>
           ) : null}
           {row.inFeed ? (
-            <span
+            <button
+              className="pulse-soft"
+              onClick={row.onRemove}
+              title="Remove this domain from For You"
               style={{
                 height: 30,
-                display: "flex",
-                alignItems: "center",
                 borderRadius: 15,
                 border: "1px solid rgba(255,255,255,0.12)",
+                background: "transparent",
                 color: "#8a8894",
+                cursor: "pointer",
                 fontSize: 11,
                 fontWeight: 700,
                 padding: "0 14px",
                 marginRight: 4,
               }}
             >
-              ✓ In your feed
-            </span>
+              × Remove
+            </button>
           ) : null}
           <button className="pulse-chev" onClick={() => scrollBy(-640)} style={chevStyle} aria-label="Scroll left">
             ‹

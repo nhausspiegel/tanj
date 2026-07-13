@@ -333,8 +333,9 @@ export function StoryModal({
               fontWeight: 800,
               letterSpacing: "0.14em",
               textTransform: "uppercase",
-              color: "#131A25",
-              background: PULSE_ACCENT,
+              color: `hsl(${domainHue(story.domain)}, 80%, 78%)`,
+              background: `hsla(${domainHue(story.domain)}, 55%, 48%, 0.22)`,
+              border: `1px solid hsla(${domainHue(story.domain)}, 60%, 55%, 0.35)`,
               padding: "5px 10px",
               borderRadius: 4,
             }}
@@ -367,7 +368,7 @@ export function StoryModal({
               marginBottom: 18,
             }}
           >
-            <span style={{ color: PULSE_ACCENT_HIGHLIGHT, fontWeight: 800 }}>{scoreText}</span>
+            <span style={{ color: "#F7F3E6", fontWeight: 800 }}>{scoreText}</span>
             <span style={dot} />
             {leadSource ? (
               <SourceTrustBadge source={leadSource}>
@@ -471,7 +472,7 @@ export function StoryModal({
               onClick={onReadOriginal}
               disabled={!story.url}
               style={{
-                background: PULSE_ACCENT,
+                background: PULSE_ACCENT_HIGHLIGHT,
                 color: "#131A25",
                 border: "none",
                 fontFamily: "inherit",
@@ -483,28 +484,27 @@ export function StoryModal({
                 opacity: story.url ? 1 : 0.55,
               }}
             >
-              Read original
+              Read
             </button>
             <button
               className="pulse-glass-btn"
               onClick={onToggleSave}
+              aria-label={saved ? "Remove from My Likes" : "Add to My Likes"}
+              title={saved ? "Liked" : "Like"}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 8,
-                background: saved ? PULSE_ACCENT : "rgba(255,255,255,0.08)",
+                justifyContent: "center",
+                width: 42,
+                height: 42,
+                background: saved ? PULSE_ACCENT_HIGHLIGHT : "rgba(255,255,255,0.08)",
                 color: saved ? "#131A25" : "#F7F3E6",
                 border: `1px solid ${saved ? PULSE_ACCENT : "rgba(255,255,255,0.16)"}`,
-                fontFamily: "inherit",
-                fontSize: 13.5,
-                fontWeight: 700,
-                padding: "10px 18px",
                 borderRadius: 6,
                 cursor: "pointer",
               }}
             >
               <HeartIcon filled={saved} />
-              {saved ? "Liked" : "Like"}
             </button>
           </div>
         </div>

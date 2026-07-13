@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { DOMAIN_HUE, PULSE_ACCENT, PULSE_DOMAIN_ORDER, domainLabel } from "@/lib/pulse";
+import { DOMAIN_HUE, PULSE_ACCENT, PULSE_ACCENT_HIGHLIGHT, PULSE_DOMAIN_ORDER, domainLabel } from "@/lib/pulse";
 import type { ArticleDomain } from "@/lib/types";
 
 type Provider = "openai" | "anthropic";
@@ -521,7 +521,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               onClick={save}
               disabled={loading || !apiKey}
               style={{
-                background: PULSE_ACCENT,
+                background: PULSE_ACCENT_HIGHLIGHT,
                 color: "#131A25",
                 border: "none",
                 fontFamily: "inherit",
@@ -845,7 +845,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 <button
                   onClick={saveDevSettings}
                   style={{
-                    background: PULSE_ACCENT,
+                    background: PULSE_ACCENT_HIGHLIGHT,
                     color: "#131A25",
                     border: "none",
                     fontFamily: "inherit",

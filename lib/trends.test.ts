@@ -17,6 +17,7 @@ function article(domain: ArticleDomain, daysAgo: number, id = `${domain}-${daysA
     publishedAt: iso,
     title: `${domain} headline ${id}`,
     tldr: "Short summary.",
+    tldrIsAi: false,
     importance: 3,
     baseScore: 5,
     tags: [],
