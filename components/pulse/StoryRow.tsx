@@ -159,7 +159,7 @@ export function StoryRow({
         className="pulse-row-scroll"
         style={{
           display: "flex",
-          gap: 14,
+          gap: 18,
           overflowX: "auto",
           padding: "6px 44px 10px",
         }}

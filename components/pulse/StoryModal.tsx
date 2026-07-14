@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
-import { PULSE_ACCENT, PULSE_ACCENT_HIGHLIGHT, PULSE_ACCENT_SECONDARY, domainHue, domainLabel, exactDateLabel, sourceMark, type PulseSourceRef, type PulseStory } from "@/lib/pulse";
+import { PULSE_ACCENT, PULSE_ACCENT_HIGHLIGHT, PULSE_ACCENT_SECONDARY, domainHue, domainLabel, exactDateLabel, scoreColor, sourceMark, type PulseSourceRef, type PulseStory } from "@/lib/pulse";
 import { recencyLabel, recencyScore, trustLabel } from "@/lib/outlets";
 import { HeartIcon } from "@/components/pulse/icons";
 
@@ -368,7 +368,7 @@ export function StoryModal({
               marginBottom: 18,
             }}
           >
-            <span style={{ color: "#F7F3E6", fontWeight: 800 }}>{scoreText}</span>
+            <span style={{ color: scoreColor(Number.parseFloat(scoreText) || 0), fontWeight: 800 }}>{scoreText}</span>
             <span style={dot} />
             {leadSource ? (
               <SourceTrustBadge source={leadSource}>

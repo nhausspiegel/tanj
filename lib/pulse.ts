@@ -156,6 +156,13 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+// Score heatmap: low = red, high = green (HSL hue 0→120). Scores run ~1–10,
+// so the useful band (≈4–9) spreads across orange → yellow → green.
+export function scoreColor(score: number): string {
+  const t = clamp((score - 1) / 9, 0, 1);
+  return `hsl(${(t * 120).toFixed(0)}, 68%, 58%)`;
+}
+
 // Stable per-id hash (0–996), mirrors the prototype's deterministic stand-in.
 function hashId(id: string): number {
   let h = 0;

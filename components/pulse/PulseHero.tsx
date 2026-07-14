@@ -68,9 +68,9 @@ export function PulseHero({
               fontWeight: 800,
               letterSpacing: "0.14em",
               textTransform: "uppercase",
-              color: `hsl(${domainHue(hero.domain)}, 80%, 78%)`,
-              background: `hsla(${domainHue(hero.domain)}, 55%, 48%, 0.2)`,
-              border: `1px solid hsla(${domainHue(hero.domain)}, 60%, 55%, 0.35)`,
+              color: `hsl(${domainHue(hero.domain)}, 45%, 72%)`,
+              background: `hsla(${domainHue(hero.domain)}, 40%, 45%, 0.1)`,
+              border: `1px solid hsla(${domainHue(hero.domain)}, 45%, 50%, 0.2)`,
               padding: "5px 10px",
               borderRadius: 4,
             }}

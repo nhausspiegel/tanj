@@ -46,7 +46,7 @@ function openExternal(url?: string) {
 }
 
 export function PulseClient() {
-  const { coloredScoreBadges } = useThemeOverrides();
+  useThemeOverrides();
   const {
     stories,
     rankedStories,
@@ -179,31 +179,36 @@ export function PulseClient() {
 
   const buildItems = useCallback(
     (rowKey: string, list: PulseStory[]): RowItem[] =>
-      list.map((story, i) => ({
-        key: `${rowKey}:${story.id}`,
-        story,
-        scoreText: scoreLabel(score(story)),
-        thumb: cardThumb(story.domain, i),
-        saved: !!saved[story.id],
-        vote: (votes[story.id] as 1 | -1 | 0) || 0,
-        hovered: hovered === story.id,
-        isNew: Boolean(
-          story.processedAt && newSinceRefreshAt && story.processedAt > newSinceRefreshAt,
-        ),
-        coloredScoreBadge: coloredScoreBadges,
-        onOpen: () => setSelected(story.id),
-        onEnter: () => setHovered(story.id),
-        onLeave: () => setHovered((h) => (h === story.id ? null : h)),
-        onLike: (e) => {
-          e.stopPropagation();
-          toggleSaved(story.id);
-        },
-        onDislike: (e) => {
-          e.stopPropagation();
-          setVote(story.id, -1);
-        },
-      })),
-    [score, saved, votes, hovered, setVote, toggleSaved, newSinceRefreshAt, coloredScoreBadges],
+      list.map((story, i) => {
+        // Hover identity is per-card (row-qualified), not per-story: the same
+        // story appears in Suggested and its domain row, and keying hover on
+        // story.id alone would light up every copy at once.
+        const itemKey = `${rowKey}:${story.id}`;
+        return {
+          key: itemKey,
+          story,
+          scoreText: scoreLabel(score(story)),
+          thumb: cardThumb(story.domain, i),
+          saved: !!saved[story.id],
+          vote: (votes[story.id] as 1 | -1 | 0) || 0,
+          hovered: hovered === itemKey,
+          isNew: Boolean(
+            story.processedAt && newSinceRefreshAt && story.processedAt > newSinceRefreshAt,
+          ),
+          onOpen: () => setSelected(story.id),
+          onEnter: () => setHovered(itemKey),
+          onLeave: () => setHovered((h) => (h === itemKey ? null : h)),
+          onLike: (e) => {
+            e.stopPropagation();
+            toggleSaved(story.id);
+          },
+          onDislike: (e) => {
+            e.stopPropagation();
+            setVote(story.id, -1);
+          },
+        };
+      }),
+    [score, saved, votes, hovered, setVote, toggleSaved, newSinceRefreshAt],
   );
 
   const rows: RowViewModel[] = useMemo(() => {
