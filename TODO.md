@@ -15,8 +15,13 @@ Working list of open items from ongoing PULSE work. Delete items once shipped
   pattern-engine into it" plan. Follow-ups if desired:
   - Real cluster data fills multi-source counts; in web/seed mode every event
     shows "1 articles / 1 sources" because `SEED_STORIES` aren't truly clustered.
-  - The per-source "reporting timeline" note currently reuses the cluster
-    summary — real per-article notes would read better.
+  - ~~The per-source "reporting timeline" note currently reuses the cluster
+    summary — real per-article notes would read better.~~ — fixed
+    2026-07-13: `PulseSourceRef` gained a `headline` field (each contributing
+    article's own title); the reporting timeline shows that instead of a
+    truncated raw feed summary (which was outright garbage for some feeds,
+    e.g. hnrss.org's description is always link-metadata boilerplate, never
+    real content). The link now wraps the headline, not the source name.
   - The 7-day activity lines could later be fed by the pattern engine's
     week-over-week tag deltas (`electron/repositories/patternsRepo.js`) instead
     of raw article counts, if a theme/velocity view is wanted.
@@ -66,10 +71,18 @@ Working list of open items from ongoing PULSE work. Delete items once shipped
     a full heuristic tagging/importance engine), `usePulseData.ts` (a "hook"
     that does IPC orchestration + clustering + lifecycle state — business
     logic that belongs in `lib/`), `SettingsModal.tsx` (885 lines / 28 hooks).
-  - **N+1 / unbatched DB writes** — `articlesRepo.js`'s per-tag
-    `getOrCreateTag` calls in a loop instead of a batched statement;
-    `preferencesRepo.js`'s `updateAffinitiesForClusterFeedback` does
-    read-then-write per tag/entity in an uncommitted loop (no transaction).
+  - ~~**N+1 / unbatched DB writes**~~ — fixed 2026-07-13: `articlesRepo.js`
+    added a per-db statement cache (`db.prepare()` was re-parsing the same
+    SQL every call across the article/tag loop) and `getOrCreateTag` is now
+    one `INSERT..ON CONFLICT..RETURNING` instead of INSERT+SELECT.
+    `preferencesRepo.js`'s `updateAffinity` collapsed from 3 round trips
+    (SELECT, INSERT/UPDATE, SELECT) to 1 RETURNING statement with a CASE
+    for delta-accumulate vs absolute-overwrite; `updateAffinitiesForClusterFeedback`
+    now wraps its per-tag/entity loop in `db.transaction()` (was up to 10
+    separate uncommitted-until-each-call round trips for 5 tags + 5 entities).
+    Verified directly against a real in-memory DB (no prior test coverage) —
+    fresh insert, accumulation, overwrite, and clamping at both ends all
+    match prior behavior exactly.
   - **Small dead weight** — `resourceMonitor.js`'s `severity`/`criticalReasons`
     fields have no consumer; `types/desktop.d.ts`'s `DesktopPreferences.learningProfile`
     is declared but never read (real learning profile goes through a separate

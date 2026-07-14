@@ -1,6 +1,26 @@
 const MAX_LIMIT = 1000;
 const { indexArticle } = require("./searchRepo");
 
+// db.prepare(sql) re-parses the SQL text every call; upsertArticle runs
+// several of these per article (plus per-tag) in a refresh's article loop,
+// so a refresh of a few hundred articles was re-preparing the same handful
+// of statements thousands of times. Cache by db instance + SQL text so each
+// distinct statement is parsed once and its compiled Statement is reused.
+const stmtCache = new WeakMap();
+function stmt(db, sql) {
+  let cache = stmtCache.get(db);
+  if (!cache) {
+    cache = new Map();
+    stmtCache.set(db, cache);
+  }
+  let prepared = cache.get(sql);
+  if (!prepared) {
+    prepared = db.prepare(sql);
+    cache.set(sql, prepared);
+  }
+  return prepared;
+}
+
 const ARTICLE_DOMAINS = [
   "AIUse",
   "LLM",
@@ -144,11 +164,15 @@ function normalizeArticle(article) {
 
 function getOrCreateTag(db, name, category = null) {
   const normalized = name.trim().toLowerCase().replace(/\s+/g, "_");
-  db.prepare(
-    "INSERT INTO tags (name, category) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET category = COALESCE(tags.category, excluded.category)",
-  ).run(normalized, category);
-
-  return db.prepare("SELECT id, name, category FROM tags WHERE name = ?").get(normalized);
+  // Single INSERT..ON CONFLICT..RETURNING instead of INSERT then a separate
+  // SELECT — one round trip instead of two, same result either way (fresh
+  // row or the existing one with its category preserved).
+  return stmt(
+    db,
+    `INSERT INTO tags (name, category) VALUES (?, ?)
+     ON CONFLICT(name) DO UPDATE SET category = COALESCE(tags.category, excluded.category)
+     RETURNING id, name, category`,
+  ).get(normalized, category);
 }
 
 function articleFromRow(row, tags) {
@@ -219,8 +243,8 @@ function upsertArticle(db, input) {
   }
 
   const existing = article.url
-    ? db.prepare("SELECT id FROM articles WHERE url = ?").get(article.url)
-    : db.prepare("SELECT id FROM articles WHERE id = ?").get(article.id);
+    ? stmt(db, "SELECT id FROM articles WHERE url = ?").get(article.url)
+    : stmt(db, "SELECT id FROM articles WHERE id = ?").get(article.id);
   const articleId = existing?.id ?? article.id;
   const inserted = !existing;
 
@@ -228,7 +252,7 @@ function upsertArticle(db, input) {
     ? JSON.stringify(article.domainSecondary)
     : null;
 
-  db.prepare(`
+  stmt(db, `
     INSERT INTO articles (
       id, headline, summary, domain, domain_secondary_json, source, url, image_url, excerpt,
       ai_enriched, importance, personalized_score, published_at, processed_at, raw_payload
@@ -269,15 +293,14 @@ function upsertArticle(db, input) {
     article.raw_payload,
   );
 
-  db.prepare("DELETE FROM article_tags WHERE article_id = ?").run(articleId);
+  stmt(db, "DELETE FROM article_tags WHERE article_id = ?").run(articleId);
 
   const indexedTags = article.tags.length ? article.tags : ["uncategorized"];
+  const linkTagStmt = stmt(db, "INSERT OR IGNORE INTO article_tags (article_id, tag_id) VALUES (?, ?)");
 
   for (const tagName of indexedTags) {
     const tag = getOrCreateTag(db, tagName, article.domain);
-    db.prepare(
-      "INSERT OR IGNORE INTO article_tags (article_id, tag_id) VALUES (?, ?)",
-    ).run(articleId, tag.id);
+    linkTagStmt.run(articleId, tag.id);
   }
 
   indexArticle(db, { ...article, id: articleId }, indexedTags);
