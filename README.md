@@ -58,7 +58,6 @@ npm run package:desktop
 npm run make:desktop
 ```
 
-===
 Info for robots begins below
 ===
 
