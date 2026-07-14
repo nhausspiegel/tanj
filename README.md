@@ -2,6 +2,37 @@
 
 Locally-running dashboard for emerging tech news.
 
+## Info for humans
+
+### LLM Setup
+
+If you want, the desktop app works with no AI setup at all — without one, article
+summaries fall back to the raw feed text. But it kinda sucks. To get real plain-language
+summaries, pick one:
+
+**Option A — a hosted API key (OpenAI or Anthropic):** open the app's
+**Settings** panel (bottom of the sidebar), pick a provider, and paste in
+your own API key. This costs a small amount per use (a fraction of a cent
+per article on the cheapest models) billed to your own account — useful if
+you don't want to run a local model, or want faster/higher-quality
+summaries. The key never leaves your machine except to call that
+provider's API directly.
+
+**Option B — free, local, no account (recommended to start):**
+
+```bash
+ollama pull qwen2.5-coder:7b
+```
+
+That's it — no API key needed. Requires [Ollama](https://ollama.com) running
+locally (`ollama serve`). You can use whatever model you want - I picked this one
+because it's relatively small for a local model (but "small" means a one-time
+~4.7GB download). On my M4 MacBook Air, this runs at roughly 20 tokens/sec,
+meaning a batch of new articles processes in the background in a couple of minutes.
+It'll probably be faster on a custom PC with 32 GB of RGB RAM. But it's free!
+
+## End info for humans
+
 ## Current UI: PULSE
 
 The renderer's only mounted surface is **PULSE**, a dark, Netflix-row-style
