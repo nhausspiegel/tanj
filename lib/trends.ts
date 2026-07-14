@@ -97,11 +97,29 @@ function latestTimestamp(...lists: PulseStory[][]): number | null {
  *   lines, domain selection, and events are all built from clusterStories.
  * @param clusterStories merged, one per story cluster (dashboard's `rankedStories`)
  */
+export type BuildTrendsOptions = {
+  // Only chart these domains (Trends should only show domains you follow).
+  isFollowed?: (domain: ArticleDomain) => boolean;
+  // Dev-tunable overrides for the fixed defaults below.
+  maxDomains?: number;
+  maxEvents?: number;
+};
+
 export function buildTrends(
   articleStories: PulseStory[],
   clusterStories: PulseStory[],
   now?: number,
+  options: BuildTrendsOptions = {},
 ): TrendsModel {
+  const maxDomains = Math.max(1, Math.floor(options.maxDomains ?? MAX_DOMAINS));
+  // At least one event per shown domain, so never fewer than maxDomains.
+  const maxEvents = Math.max(maxDomains, Math.floor(options.maxEvents ?? MAX_EVENTS));
+  // Restrict the whole chart (lines, domain ranking, events) to followed
+  // domains — an unfollowed domain never appears in Trends.
+  const clusters = options.isFollowed
+    ? clusterStories.filter((s) => options.isFollowed!(s.domain))
+    : clusterStories;
+
   // Anchor the window to the newest story when no explicit "now" is given: this
   // keeps the output identical on server and client (no Date.now()) and keeps
   // the chart populated even if the freshest data is a day or two old.
@@ -123,7 +141,7 @@ export function buildTrends(
   // corroborated by 5 outlets is one important event, not five, so this
   // must aggregate clusterStories, not articleStories.
   const impactsByDomainDay = new Map<ArticleDomain, number[][]>();
-  for (const story of clusterStories) {
+  for (const story of clusters) {
     const idx = dayIndexOf(storyDayStart(story));
     if (idx < 0) continue;
     let grid = impactsByDomainDay.get(story.domain);
@@ -153,7 +171,7 @@ export function buildTrends(
   // dropoff — peaks dominate, but several strong stories still add up. Both
   // domain and event selection run off this one internal ranking; the numbers
   // *displayed* below stay on the fixed absolute scale.
-  const inWindow = clusterStories
+  const inWindow = clusters
     .map((story) => ({
       story,
       dayIndex: dayIndexOf(storyDayStart(story)),
@@ -179,7 +197,7 @@ export function buildTrends(
   // have any in-window activity; most impactful first.
   const ranked = [...domainScore.entries()]
     .sort((a, b) => b[1] - a[1])
-    .slice(0, MAX_DOMAINS)
+    .slice(0, maxDomains)
     .map(([key]) => key);
   const selectedKeys = new Set(ranked);
 
@@ -217,7 +235,7 @@ export function buildTrends(
   }
   // Pass 2 — fill remaining slots by global rank, one per (domain, day).
   for (const c of candidates) {
-    if (selected.length >= MAX_EVENTS) break;
+    if (selected.length >= maxEvents) break;
     const domainDayKey = `${c.story.domain}:${c.dayIndex}`;
     if (usedDomainDays.has(domainDayKey)) continue;
     usedDomainDays.add(domainDayKey);

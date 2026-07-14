@@ -66,6 +66,19 @@ export function PulseClient() {
   const [hovered, setHovered] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Dev-tunable Trends limits (Settings). Read from preferences and kept live
+  // via the onChanged subscription; empty until loaded, so buildTrends uses
+  // its own defaults.
+  const [trendsTuning, setTrendsTuning] = useState<{ maxDomains?: number; maxEvents?: number }>({});
+  useEffect(() => {
+    const desktop = typeof window !== "undefined" ? window.desktop : undefined;
+    if (!desktop?.data?.getPreferences) return;
+    const apply = (p?: DesktopPreferences | null) =>
+      setTrendsTuning({ maxDomains: p?.trendsTuning?.maxDomains, maxEvents: p?.trendsTuning?.maxEvents });
+    desktop.data.getPreferences().then(apply).catch(() => {});
+    const unsubscribe = desktop.preferences?.onChanged?.(apply);
+    return () => unsubscribe?.();
+  }, []);
 
   const mainRef = useRef<HTMLDivElement | null>(null);
   const rowRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -244,7 +257,16 @@ export function PulseClient() {
   ]);
 
   // Trends: chart activity from per-article stories, events from clusters.
-  const trendsModel = useMemo(() => buildTrends(stories, rankedStories), [stories, rankedStories]);
+  // Only followed domains are charted; domain/event counts are dev-tunable.
+  const trendsModel = useMemo(
+    () =>
+      buildTrends(stories, rankedStories, undefined, {
+        isFollowed: (d) => Boolean(followed[d]),
+        maxDomains: trendsTuning.maxDomains,
+        maxEvents: trendsTuning.maxEvents,
+      }),
+    [stories, rankedStories, followed, trendsTuning.maxDomains, trendsTuning.maxEvents],
+  );
 
   // My Likes page: the saved stories, as cards.
   const likedStories = useMemo(

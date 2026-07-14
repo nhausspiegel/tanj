@@ -1,3 +1,21 @@
+// db.prepare(sql) re-parses the SQL text every call; updateAffinity runs in
+// a tag/entity loop per cluster-feedback event, so cache by db instance +
+// SQL text to parse each distinct statement once and reuse the compiled one.
+const stmtCache = new WeakMap();
+function stmt(db, sql) {
+  let cache = stmtCache.get(db);
+  if (!cache) {
+    cache = new Map();
+    stmtCache.set(db, cache);
+  }
+  let prepared = cache.get(sql);
+  if (!prepared) {
+    prepared = db.prepare(sql);
+    cache.set(sql, prepared);
+  }
+  return prepared;
+}
+
 const defaultPreferences = {
   refreshIntervalMinutes: 30,
   notificationsEnabled: true,
@@ -37,6 +55,10 @@ const defaultPreferences = {
     minFreeMemoryMb: 256,
     warningProcessRssMb: 1024,
     maxProcessRssMb: 1536,
+  },
+  trendsTuning: {
+    maxDomains: 10,
+    maxEvents: 20,
   },
   themeOverrides: {
     accentPrimary: "",
@@ -91,7 +113,7 @@ function savePreference(db, key, value) {
   `).run(key, JSON.stringify(value));
 }
 
-const TUNING_GROUPS = ["refreshTuning", "aiTuning", "resourceTuning", "themeOverrides"];
+const TUNING_GROUPS = ["refreshTuning", "aiTuning", "resourceTuning", "themeOverrides", "trendsTuning"];
 
 function getPreferences(db) {
   const stored = getPreference(db, "settings", {});
@@ -187,6 +209,14 @@ function savePreferences(db, next) {
     if (typeof t.keepAlive === "string") at.keepAlive = t.keepAlive.trim().slice(0, 32);
     if (clampedInt(t.timeoutMs, 5000, 300000) !== null) at.timeoutMs = clampedInt(t.timeoutMs, 5000, 300000);
     sanitized.aiTuning = at;
+  }
+
+  if (next.trendsTuning && typeof next.trendsTuning === "object") {
+    const t = next.trendsTuning;
+    const tt = { ...sanitized.trendsTuning };
+    if (clampedInt(t.maxDomains, 1, 12) !== null) tt.maxDomains = clampedInt(t.maxDomains, 1, 12);
+    if (clampedInt(t.maxEvents, 1, 50) !== null) tt.maxEvents = clampedInt(t.maxEvents, 1, 50);
+    sanitized.trendsTuning = tt;
   }
 
   if (next.resourceTuning && typeof next.resourceTuning === "object") {
@@ -444,6 +474,12 @@ function feedbackDelta(payload) {
   return 0;
 }
 
+// One INSERT..ON CONFLICT..RETURNING instead of SELECT-then-INSERT-then-
+// SELECT (3 round trips down to 1). Delta mode still needs the accumulation
+// to happen relative to whatever's already stored, so that branch does the
+// add + clamp in the UPDATE SET expression itself rather than reading the
+// current score into JS first; the CASE picks overwrite-vs-accumulate per
+// call without needing two separately-parsed statements.
 function updateAffinity(db, payload) {
   const key = normalizeAffinityKey(payload?.key);
   const type = payload?.type === "entity" ? "entity" : "tag";
@@ -454,20 +490,21 @@ function updateAffinity(db, payload) {
     throw new Error("key, type, and score or delta are required");
   }
 
-  const current = db.prepare("SELECT score FROM user_affinity WHERE key = ?").get(key);
-  const nextScore = useAbsoluteScore ? score : Number(current?.score ?? 0) + score;
   const updatedAt = new Date().toISOString();
+  const boundScore = Number(Math.max(-10, Math.min(10, score)).toFixed(3));
 
-  db.prepare(`
+  return stmt(db, `
     INSERT INTO user_affinity (key, type, score, updated_at)
     VALUES (?, ?, ?, ?)
     ON CONFLICT(key) DO UPDATE SET
       type = excluded.type,
-      score = excluded.score,
+      score = CASE WHEN ? = 1
+        THEN excluded.score
+        ELSE MAX(-10, MIN(10, user_affinity.score + excluded.score))
+      END,
       updated_at = excluded.updated_at
-  `).run(key, type, Number(Math.max(-10, Math.min(10, nextScore)).toFixed(3)), updatedAt);
-
-  return db.prepare("SELECT key, type, score, updated_at FROM user_affinity WHERE key = ?").get(key);
+    RETURNING key, type, score, updated_at
+  `).get(key, type, boundScore, updatedAt, useAbsoluteScore ? 1 : 0);
 }
 
 function updateAffinitiesForClusterFeedback(db, payload) {
@@ -494,9 +531,15 @@ function updateAffinitiesForClusterFeedback(db, payload) {
     }
   }
 
-  for (const target of targets.values()) {
-    updateAffinity(db, { ...target, delta });
-  }
+  // One commit for the whole cluster's tags/entities instead of one commit
+  // per affinity update (5 tags + 5 entities was previously 10 separate
+  // uncommitted-until-each-call round trips).
+  const applyAll = db.transaction((items) => {
+    for (const target of items) {
+      updateAffinity(db, { ...target, delta });
+    }
+  });
+  applyAll([...targets.values()]);
 }
 
 function saveUserFeedback(db, payload) {

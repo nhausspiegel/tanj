@@ -235,4 +235,28 @@ describe("buildTrends", () => {
     expect(model.events).toEqual([]);
     expect(model.days).toHaveLength(7);
   });
+
+  it("only charts followed domains when isFollowed is provided", () => {
+    const clusters = [cluster("LLM", 1, 10), cluster("Robotics", 1, 9), cluster("Policy", 1, 8)];
+    const model = buildTrends([], clusters, NOW, {
+      isFollowed: (d) => d === "LLM" || d === "Policy",
+    });
+    const keys = model.domains.map((d) => d.key);
+    expect(keys).toContain("LLM");
+    expect(keys).toContain("Policy");
+    expect(keys).not.toContain("Robotics"); // unfollowed -> never appears
+    expect(model.events.some((e) => e.domainKey === "Robotics")).toBe(false);
+  });
+
+  it("respects dev-tunable maxDomains and maxEvents overrides", () => {
+    const clusters = [
+      cluster("LLM", 1, 10),
+      cluster("Robotics", 1, 9),
+      cluster("Policy", 1, 8),
+      cluster("Cloud", 1, 7),
+    ];
+    const model = buildTrends([], clusters, NOW, { maxDomains: 2, maxEvents: 2 });
+    expect(model.domains).toHaveLength(2);
+    expect(model.events.length).toBeLessThanOrEqual(2);
+  });
 });

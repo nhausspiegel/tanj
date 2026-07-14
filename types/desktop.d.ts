@@ -87,6 +87,11 @@ declare global {
     maxProcessRssMb: number;
   };
 
+  type DesktopTrendsTuning = {
+    maxDomains: number;
+    maxEvents: number;
+  };
+
   type DesktopThemeOverrides = {
     accentPrimary: string;
     accentSecondary: string;
@@ -119,6 +124,7 @@ declare global {
     refreshTuning: DesktopRefreshTuning;
     aiTuning: DesktopAiTuning;
     resourceTuning: DesktopResourceTuning;
+    trendsTuning: DesktopTrendsTuning;
     themeOverrides: DesktopThemeOverrides;
     domainHueOverrides: Record<string, number>;
     disabledSources: string[];

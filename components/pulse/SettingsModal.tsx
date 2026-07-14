@@ -42,6 +42,10 @@ const DEFAULT_RESOURCE_TUNING: DesktopResourceTuning = {
   warningProcessRssMb: 1024,
   maxProcessRssMb: 1536,
 };
+const DEFAULT_TRENDS_TUNING: DesktopTrendsTuning = {
+  maxDomains: 10,
+  maxEvents: 20,
+};
 const DEFAULT_THEME: DesktopThemeOverrides = {
   accentPrimary: "#788CE3",
   accentSecondary: "#83CDFF",
@@ -269,6 +273,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [refreshTuning, setRefreshTuning] = useState<DesktopRefreshTuning>(DEFAULT_REFRESH_TUNING);
   const [aiTuning, setAiTuning] = useState<DesktopAiTuning>(DEFAULT_AI_TUNING);
   const [resourceTuning, setResourceTuning] = useState<DesktopResourceTuning>(DEFAULT_RESOURCE_TUNING);
+  const [trendsTuning, setTrendsTuning] = useState<DesktopTrendsTuning>(DEFAULT_TRENDS_TUNING);
   const [themeOverrides, setThemeOverrides] = useState<DesktopThemeOverrides>(DEFAULT_THEME);
   const [domainHueOverrides, setDomainHueOverridesState] = useState<Record<string, number>>({});
   const [disabledSources, setDisabledSources] = useState<string[]>([]);
@@ -290,6 +295,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         if (prefs.refreshTuning) setRefreshTuning(prefs.refreshTuning);
         if (prefs.aiTuning) setAiTuning(prefs.aiTuning);
         if (prefs.resourceTuning) setResourceTuning(prefs.resourceTuning);
+        if (prefs.trendsTuning) setTrendsTuning(prefs.trendsTuning);
         if (prefs.themeOverrides) {
           setThemeOverrides({
             accentPrimary: prefs.themeOverrides.accentPrimary || DEFAULT_THEME.accentPrimary,
@@ -344,6 +350,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       refreshTuning,
       aiTuning,
       resourceTuning,
+      trendsTuning,
       themeOverrides,
       domainHueOverrides,
       disabledSources,
@@ -360,6 +367,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     setRefreshTuning(DEFAULT_REFRESH_TUNING);
     setAiTuning(DEFAULT_AI_TUNING);
     setResourceTuning(DEFAULT_RESOURCE_TUNING);
+    setTrendsTuning(DEFAULT_TRENDS_TUNING);
     setThemeOverrides(DEFAULT_THEME);
     setDomainHueOverridesState({});
     setDisabledSources([]);
@@ -369,6 +377,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       refreshTuning: DEFAULT_REFRESH_TUNING,
       aiTuning: DEFAULT_AI_TUNING,
       resourceTuning: DEFAULT_RESOURCE_TUNING,
+      trendsTuning: DEFAULT_TRENDS_TUNING,
       themeOverrides: { accentPrimary: "", accentSecondary: "", accentHighlight: "" },
       domainHueOverrides: {},
       disabledSources: [],
@@ -714,6 +723,28 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                   min={128}
                   step={128}
                   onChange={(v) => setResourceTuning((t) => ({ ...t, maxProcessRssMb: v }))}
+                />
+              </div>
+
+              <div style={sectionLabel}>Trends</div>
+              <p style={{ margin: "-4px 0 10px", fontSize: 11.5, lineHeight: 1.5, color: "#66646f" }}>
+                How many domain lines and how many event nodes the Trends chart shows.
+                Applies immediately.
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <NumberField
+                  label="Domains shown"
+                  value={trendsTuning.maxDomains}
+                  min={1}
+                  step={1}
+                  onChange={(v) => setTrendsTuning((t) => ({ ...t, maxDomains: v }))}
+                />
+                <NumberField
+                  label="Events shown (total)"
+                  value={trendsTuning.maxEvents}
+                  min={1}
+                  step={1}
+                  onChange={(v) => setTrendsTuning((t) => ({ ...t, maxEvents: v }))}
                 />
               </div>
 
