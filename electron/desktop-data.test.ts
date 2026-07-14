@@ -200,6 +200,22 @@ describe("Electron Phase 2 local data layer", () => {
     expect(clean.domainSecondary).toEqual(["Batteries"]);
   });
 
+  it("filters by since, keeping rows at/after the bound and excluding older ones", () => {
+    const db = createDb();
+
+    upsertArticles(db, [
+      sampleArticle({ id: "old", url: "https://example.com/old", published_at: "2026-04-01T00:00:00.000Z" }),
+      sampleArticle({ id: "boundary", url: "https://example.com/boundary", published_at: "2026-04-10T00:00:00.000Z" }),
+      sampleArticle({ id: "new", url: "https://example.com/new", published_at: "2026-04-18T12:00:00.000Z" }),
+    ]);
+
+    const filtered = getArticles(db, { since: "2026-04-10T00:00:00.000Z", limit: 10 });
+    expect(filtered.map((r: any) => r.id).sort()).toEqual(["boundary", "new"]);
+
+    const unfiltered = getArticles(db, { limit: 10 });
+    expect(unfiltered.length).toBe(3);
+  });
+
   it("rejects unknown primary domain and drops secondary duplicates of primary", () => {
     const db = createDb();
 

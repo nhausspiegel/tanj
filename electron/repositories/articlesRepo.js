@@ -1,4 +1,4 @@
-const MAX_LIMIT = 1000;
+const MAX_LIMIT = 2000;
 const { indexArticle } = require("./searchRepo");
 
 // db.prepare(sql) re-parses the SQL text every call; upsertArticle runs
@@ -361,6 +361,11 @@ function getArticles(db, filters = {}) {
     where.push("(a.headline LIKE ? OR a.summary LIKE ?)");
     const query = `%${filters.search.trim()}%`;
     params.push(query, query);
+  }
+
+  if (typeof filters.since === "string" && filters.since.trim()) {
+    where.push("a.published_at >= ?");
+    params.push(filters.since.trim());
   }
 
   const limit = clampLimit(filters.limit, 100);

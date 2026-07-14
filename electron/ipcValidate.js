@@ -50,7 +50,8 @@ function sanitizeArticleFilters(input) {
     tag: clampString(src.tag, MAX_TAG_LEN),
     minImportance: clampNumber(src.minImportance, { min: 1, max: 5 }),
     search: clampString(src.search, MAX_SEARCH_QUERY),
-    limit: clampNumber(src.limit, { min: 1, max: 1000 }),
+    since: clampString(src.since, 40),
+    limit: clampNumber(src.limit, { min: 1, max: 2000 }),
     offset: clampNumber(src.offset, { min: 0, max: 1_000_000 }),
   };
 }
@@ -274,6 +275,7 @@ function sanitizePreferences(input) {
     refreshTuning: isPlainObject(src.refreshTuning) ? src.refreshTuning : undefined,
     aiTuning: isPlainObject(src.aiTuning) ? src.aiTuning : undefined,
     resourceTuning: isPlainObject(src.resourceTuning) ? src.resourceTuning : undefined,
+    trendsTuning: isPlainObject(src.trendsTuning) ? src.trendsTuning : undefined,
     themeOverrides: isPlainObject(src.themeOverrides) ? src.themeOverrides : undefined,
     domainHueOverrides: isPlainObject(src.domainHueOverrides) ? src.domainHueOverrides : undefined,
     disabledSources: Array.isArray(src.disabledSources) ? src.disabledSources : undefined,

@@ -3,13 +3,30 @@ import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
-const { clampStringArray, sanitizePreferences, sanitizeScanStatePayload } = require("./ipcValidate");
+const { clampStringArray, sanitizeArticleFilters, sanitizePreferences, sanitizeScanStatePayload } = require("./ipcValidate");
 
 describe("sanitizePreferences", () => {
   it("preserves the colored-score-badges toggle", () => {
     expect(sanitizePreferences({ coloredScoreBadges: true }).coloredScoreBadges).toBe(true);
     expect(sanitizePreferences({ coloredScoreBadges: false }).coloredScoreBadges).toBe(false);
     expect(sanitizePreferences({ coloredScoreBadges: "true" }).coloredScoreBadges).toBeUndefined();
+  });
+
+  it("passes trendsTuning through when it is a plain object", () => {
+    const tuning = { maxDomains: 7, maxEvents: 15 };
+    expect(sanitizePreferences({ trendsTuning: tuning }).trendsTuning).toEqual(tuning);
+    expect(sanitizePreferences({ trendsTuning: "nope" }).trendsTuning).toBeUndefined();
+    expect(sanitizePreferences({}).trendsTuning).toBeUndefined();
+  });
+});
+
+describe("sanitizeArticleFilters", () => {
+  it("passes a valid since string through and drops a non-string", () => {
+    expect(sanitizeArticleFilters({ since: "2026-04-10T00:00:00.000Z" }).since).toBe(
+      "2026-04-10T00:00:00.000Z",
+    );
+    expect(sanitizeArticleFilters({ since: 12345 }).since).toBeUndefined();
+    expect(sanitizeArticleFilters({}).since).toBeUndefined();
   });
 });
 

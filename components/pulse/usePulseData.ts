@@ -131,9 +131,17 @@ export function usePulseData(): PulseData {
       return;
     }
 
+    // Trends charts a 7-day window (lib/trends.ts WINDOW_DAYS); fetch 8 days
+    // (a day of margin) so its newest-anchored slice is always fully covered
+    // even if the freshest data is a day stale. The Dashboard still only
+    // shows the newest 400 of this set (sliced below) — same behavior as
+    // before, just sourced from one fetch instead of a separate limit=400 one.
     const [articlesRes, briefRes, lastRefreshRes, memoryRes, synthesesRes] =
       await Promise.allSettled([
-        desktop.data.getArticles({ limit: 400 }),
+        desktop.data.getArticles({
+          since: new Date(Date.now() - 8 * 86_400_000).toISOString(),
+          limit: 2000,
+        }),
         desktop.data.getBrief(),
         desktop.jobs.getLastRefresh(),
         desktop.memory?.getState ? desktop.memory.getState() : Promise.resolve(null),
@@ -157,12 +165,15 @@ export function usePulseData(): PulseData {
         : [];
 
     if (articlesRes.status === "fulfilled" && Array.isArray(articlesRes.value)) {
-      const articles = articlesRes.value;
+      const windowArticles = articlesRes.value;
+      // Dashboard: newest 400 only (rows arrive newest-first) — unchanged
+      // from before. Trends/clustering below uses the full window.
+      const articles = windowArticles.slice(0, 400);
       const mapped = articlesToStories(articles, Date.now(), previousStories);
       if (mapped.length > 0) {
         setStories(mapped);
-        const articlesById = new Map(articles.map((article) => [article.id, article]));
-        const clusters = clusterArticles(articles);
+        const articlesById = new Map(windowArticles.map((article) => [article.id, article]));
+        const clusters = clusterArticles(windowArticles);
         const now = Date.now();
         const rankedMapped = clusters.map((cluster) =>
           clusterToStory(cluster, articlesById, now, previousStories, clusterSyntheses),
