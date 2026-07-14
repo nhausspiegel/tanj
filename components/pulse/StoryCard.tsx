@@ -13,10 +13,8 @@ import {
 import { HeartIcon, XIcon } from "@/components/pulse/icons";
 
 const SCORE_TERMS: Array<{ key: keyof ArticleScoreBreakdown; label: string }> = [
-  { key: "recency", label: "Recency" },
   { key: "importance", label: "Importance" },
-  { key: "tag", label: "Topic match" },
-  { key: "novelty", label: "Freshness" },
+  { key: "recency", label: "Recency" },
 ];
 
 // Red (low fill) -> green (high fill), smooth continuum via HSL hue
@@ -143,6 +141,18 @@ function ScoreBadge({
             gap: 7,
           }}
         >
+          <div
+            style={{
+              fontSize: 9.5,
+              fontWeight: 800,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: "#8a8894",
+              marginBottom: 1,
+            }}
+          >
+            Relevance to you
+          </div>
           {SCORE_TERMS.map(({ key, label }) => scoreBar(label, breakdown[key], RELEVANCE_MAX[key]))}
           <p
             style={{

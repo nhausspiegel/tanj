@@ -18,6 +18,10 @@ type ImpactOptions = {
   preferredDomains?: ArticleDomain[];
   previousClusters?: StoryCluster[];
   now?: Date;
+  // Trends plots events on a time axis, so its impact measure must not also
+  // fold in recency (that double-counts time). The clustering-internal sort
+  // keeps recency; the Trends display passes this true.
+  excludeRecency?: boolean;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -126,7 +130,7 @@ export function computeClusterImpactScore(
   const sourceScore = sourceCountScore(cluster.sourceCount);
   const rawScore =
     sourceScore +
-    recencyScore(cluster, options.now) +
+    (options.excludeRecency ? 0 : recencyScore(cluster, options.now)) +
     importanceScore(cluster, articles) +
     tagAlignmentScore(cluster, options.preferredTags) +
     domainAlignmentScore(cluster, options.preferredDomains) +

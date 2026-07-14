@@ -63,39 +63,29 @@ describe("computeScore", () => {
   });
 });
 
-describe("computeArticleRelevanceScore", () => {
+describe("computeArticleRelevanceScore (importance-dominant)", () => {
   const base = { importance: 4, tags: [] as string[], headline: "H", previousStories: [] as PulseHistorySnapshot[] };
+  // importance term = 1 + (imp-1)*2; recency tie-breaker 0/0.2/0.4/0.6.
 
-  it("buckets recency by hours-since-publish", () => {
-    expect(computeArticleRelevanceScore({ ...base, hoursAgo: 6 })).toBeCloseTo(2 + 2.8 + 0 + 1, 5);
-    expect(computeArticleRelevanceScore({ ...base, hoursAgo: 24 })).toBeCloseTo(1.5 + 2.8 + 0 + 1, 5);
-    expect(computeArticleRelevanceScore({ ...base, hoursAgo: 100 })).toBeCloseTo(1 + 2.8 + 0 + 1, 5);
-    expect(computeArticleRelevanceScore({ ...base, hoursAgo: 200 })).toBeCloseTo(0.5 + 2.8 + 0 + 1, 5);
+  it("is driven by importance (~2*importance-1), with recency as a small nudge", () => {
+    // hoursAgo 24 -> recency 0.4.
+    expect(computeArticleRelevanceScore({ ...base, importance: 1, hoursAgo: 24 })).toBeCloseTo(1 + 0.4, 5);
+    expect(computeArticleRelevanceScore({ ...base, importance: 3, hoursAgo: 24 })).toBeCloseTo(5 + 0.4, 5);
+    expect(computeArticleRelevanceScore({ ...base, importance: 5, hoursAgo: 24 })).toBeCloseTo(9 + 0.4, 5);
   });
 
-  it("weights importance at 0.7x for a lone article", () => {
-    expect(computeArticleRelevanceScore({ ...base, hoursAgo: 24, importance: 2 })).toBeCloseTo(
-      1.5 + 2 * 0.7 + 0 + 1,
-      5,
-    );
+  it("a low-importance story can't out-score a high-importance one via recency", () => {
+    const junkFresh = computeArticleRelevanceScore({ ...base, importance: 1, hoursAgo: 1 }); // best-case low
+    const importantOld = computeArticleRelevanceScore({ ...base, importance: 4, hoursAgo: 300 }); // worst-case high
+    expect(junkFresh).toBeLessThan(importantOld);
   });
 
-  it("boosts strategic tags, clamped at 2", () => {
-    expect(
-      computeArticleRelevanceScore({ ...base, hoursAgo: 24, tags: ["gpu"] }),
-    ).toBeCloseTo(1.5 + 2.8 + 0.6 + 1, 5);
-    expect(
-      computeArticleRelevanceScore({ ...base, hoursAgo: 24, tags: ["gpu", "cloud", "chips", "security"] }),
-    ).toBeCloseTo(1.5 + 2.8 + 2 + 1, 5);
-  });
-
-  it("decays novelty when a previous story strongly overlaps", () => {
-    const previousStories: PulseHistorySnapshot[] = [
-      { id: "prev", tags: ["gpu"], headline: "H", sourceCount: 1, snapshotAt: "2026-07-09T00:00:00Z" },
-    ];
-    expect(
-      computeArticleRelevanceScore({ ...base, hoursAgo: 24, tags: ["gpu"], previousStories }),
-    ).toBeCloseTo(1.5 + 2.8 + 0.6 + 0.25, 5);
+  it("buckets recency into small tie-breaker nudges (0 / 0.2 / 0.4 / 0.6)", () => {
+    const imp = 3; // importance term = 5
+    expect(computeArticleRelevanceScore({ ...base, importance: imp, hoursAgo: 6 })).toBeCloseTo(5 + 0.6, 5);
+    expect(computeArticleRelevanceScore({ ...base, importance: imp, hoursAgo: 24 })).toBeCloseTo(5 + 0.4, 5);
+    expect(computeArticleRelevanceScore({ ...base, importance: imp, hoursAgo: 100 })).toBeCloseTo(5 + 0.2, 5);
+    expect(computeArticleRelevanceScore({ ...base, importance: imp, hoursAgo: 300 })).toBeCloseTo(5 + 0, 5);
   });
 });
 
@@ -155,9 +145,10 @@ describe("articlesToStories (Dashboard — one story per article)", () => {
     expect(s.sources[0].name).toBe("IEEE Spectrum");
   });
 
-  it("derives the relevance score from recency + importance (no strategic tag, no history)", () => {
+  it("derives an importance-dominant relevance score (importance 4, ~24h old)", () => {
     const [s] = articlesToStories([BASE_ARTICLE], now);
-    expect(s.baseScore).toBeCloseTo(1.5 + 4 * 0.7 + 0 + 1, 5);
+    // importance 4 -> 7; ~24h -> recency 0.4.
+    expect(s.baseScore).toBeCloseTo(7 + 0.4, 5);
   });
 
   it("never merges — same-story articles from different sources stay separate cards", () => {

@@ -8,11 +8,10 @@ import {
 import { clusterArticles, clusterMemberHash } from "@/lib/clustering";
 import { outletTrust, sourceComposite } from "@/lib/outlets";
 import {
+  computeClusterImpactScore,
   importanceScoreFromValues,
-  noveltyScoreFromOverlap,
   recencyScoreFromAgeHours,
   sourceCountScore,
-  tagAlignmentScoreFromTags,
 } from "@/lib/scoring";
 
 // ── TANJ palette ──────────────────────────────────────────────────
@@ -225,19 +224,15 @@ function hoursSince(value: string | undefined, now: number): number {
 }
 
 export type ArticleScoreBreakdown = {
-  recency: number;
   importance: number;
-  tag: number;
-  novelty: number;
+  recency: number;
 };
 
 // Ceilings for each term, for rendering the breakdown as bars (StoryCard's
 // score popover) — matches the term math in articleScoreTerms below.
 export const RELEVANCE_MAX: ArticleScoreBreakdown = {
-  recency: 2,
-  importance: 3.5,
-  tag: 2,
-  novelty: 1,
+  importance: 9,
+  recency: 0.6,
 };
 
 type ArticleRelevanceInputs = {
@@ -248,21 +243,29 @@ type ArticleRelevanceInputs = {
   previousStories: PulseHistorySnapshot[];
 };
 
+// Importance-dominant. The score is essentially "2 × the AI importance
+// rating − 1" (importance 1→1, 3→5, 5→9), so a story's newsworthiness sets
+// its band and low-importance items (promos, listicles, routine updates)
+// can't ride a baseline into a high score. Recency (how recent) is the only
+// tie-breaker, nudging within a band. Two earlier terms were dropped: topic
+// alignment (a dead signal — fixed 10-word whitelist, never personalized) and
+// novelty (per-article rehash detection — redundant with Trends' clustering,
+// which is what consolidates repeat coverage into a single event).
 function articleScoreTerms(inputs: ArticleRelevanceInputs): ArticleScoreBreakdown {
+  const imp = clamp(inputs.importance, 1, 5);
+  const recencyRaw = recencyScoreFromAgeHours(inputs.hoursAgo); // 0.5–2
   return {
-    recency: recencyScoreFromAgeHours(inputs.hoursAgo),
-    importance: importanceScoreFromValues([inputs.importance]),
-    tag: tagAlignmentScoreFromTags(inputs.tags),
-    novelty: noveltyScoreFromOverlap(inputs.tags, inputs.headline, inputs.previousStories),
+    importance: 1 + (imp - 1) * 2, // 1–9
+    recency: ((recencyRaw - 0.5) / 1.5) * 0.6, // 0–0.6
   };
 }
 
 // Dashboard relevance score: "should this show up for you" — one article,
-// no corroboration signal (structurally undefined at n=1). See
-// pulse_score_plan_new.md for why this differs from the Trends formula.
+// no corroboration signal (structurally undefined at n=1). Importance-driven;
+// see articleScoreTerms.
 export function computeArticleRelevanceScore(inputs: ArticleRelevanceInputs): number {
   const terms = articleScoreTerms(inputs);
-  return clamp(terms.recency + terms.importance + terms.tag + terms.novelty, 1, 10);
+  return clamp(terms.importance + terms.recency, 1, 10);
 }
 
 // Same math as computeArticleRelevanceScore, unclamped and split by term —
@@ -396,7 +399,9 @@ export function clusterToStory(
       importanceValues: members.map((article) => article.importance),
       previousSnapshot: previousStories.find((s) => s.id === cluster.id),
     }),
-    impactScore: cluster.impactScore,
+    // Recency-free impact for the Trends chart — time is already the x-axis,
+    // so folding recency into the y-value (impact) double-counts it.
+    impactScore: computeClusterImpactScore(cluster, members, { excludeRecency: true }),
   };
 }
 

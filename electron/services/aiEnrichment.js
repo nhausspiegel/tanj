@@ -66,12 +66,20 @@ const SYSTEM_PROMPT = `You are a technology analyst. For each article:
    "Materials" = materials science breakthroughs: novel alloys, polymers, ceramics, graphene/2D materials, superconductors, photovoltaics, nanomaterials. Prefer "Batteries" for energy-storage chemistry; prefer "Semis" for chip-fab process tech.
 3. Optionally add up to 2 secondary domains (different from primary, omit if none fit)
 4. Assign 2-4 specific lowercase tags reflecting underlying trends (NOT generic words like "ai" or "tech")
-5. Rate importance 1-5:
-   - 5 = industry-defining (major acquisition, breakthrough, regulation)
-   - 4 = significant (large funding, product launch from major player)
-   - 3 = noteworthy (interesting development, meaningful update)
-   - 2 = routine (minor update, incremental progress)
-   - 1 = filler (listicle, opinion without new info)
+5. Rate importance 1-5 by how much this MATTERS to someone tracking emerging
+   technology. Be harsh: most articles are 2-3. Reserve 4-5 for genuinely
+   major news, and rate anything promotional, derivative, or opinion as 1.
+   - 5 = industry-defining: major M&A, a real research or product breakthrough,
+     landmark regulation or a significant legal ruling.
+   - 4 = significant: large funding round, a major product launch from a major
+     player, a notable policy or market move.
+   - 3 = noteworthy: a real, substantive development that carries genuinely new
+     information.
+   - 2 = routine: minor or incremental update, small feature, predictable
+     product-cycle news.
+   - 1 = filler: a promotion/deal/discount, a listicle or roundup, an opinion
+     or rumor with no new facts, a how-to or lifestyle piece. Example: a
+     retail "back-to-school deal" is a 1, not a 3.
 
 Return ONLY valid JSON, no prose.`;
 
